@@ -57,7 +57,7 @@ def filter_tournament_games(filepath, min_dur=30, min_dmg=100):
                 min_dur=min_dur,
                 min_dmg=min_dmg
             ):
-                tournament_games.append(str(child.relative_to(path)))
+                yield str(child.relative_to(path))
         except:
             pass
     return tournament_games
