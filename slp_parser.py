@@ -87,6 +87,8 @@ class SLPParser:
        df['post_airborne'] = df['post_airborne'].astype(int)
        df['pre_state'] = df['pre_state'].astype(int)
        df['post_state'] = df['post_state'].astype(int)
+       pdb.set_trace()
+      
       
       
        categorical_cols = ['pre_direction', 'post_direction', 'post_ground', 'post_jumps', 'post_stocks']
