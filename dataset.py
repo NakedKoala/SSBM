@@ -25,7 +25,7 @@ class SSBMDataset(Dataset):
        4096: 12,  #START
     }
 
-    def __init__(self, src_dir, filter_char_id):
+    def __init__(self, src_dir, filter_char_id, is_dev=False):
         
         self.csv_files = [ os.path.join(src_dir, fname) for fname in os.listdir(src_dir) if '.csv' in fname]
         self.features = []
@@ -38,6 +38,9 @@ class SSBMDataset(Dataset):
             
         self.features = torch.cat(self.features, dim=0)
         self.targets = torch.cat(self.targets, dim=0)
+        if is_dev == True:
+            self.features = self.features[:1000]
+            self.targets = self.targets[:1000]
        
        
     def __len__(self):
@@ -62,13 +65,14 @@ class SSBMDataset(Dataset):
 
         df = df[df['post_character'] == filter_char_id] #12
         df['pre_buttons'] = df['pre_buttons'].apply(lambda x: SSBMDataset.enum_to_softmax_index[x] if x in SSBMDataset.enum_to_softmax_index else 0)
-        
-        features_np, targets_np = df[feat_cols].shift(1).to_numpy(), df[target_cols].to_numpy()
+        features_df, targets_df = df[feat_cols].shift(1).fillna(0), df[target_cols] 
+       
+        features_np, targets_np = features_df.to_numpy(), targets_df.to_numpy()
 
         scaler = StandardScaler()
 
         features_np[:,2:] = scaler.fit_transform(features_np[:,2:])
 
         features_tensor, targets_tensor = torch.from_numpy(features_np), torch.from_numpy(targets_np)
-        return features_tensor, targets_tensor
+        return features_tensor.float(), targets_tensor.float()
         
