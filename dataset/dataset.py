@@ -12,7 +12,7 @@ from slippi import Game
 #   - at least 30 seconds long
 #   - at least 50 total damage dealt
 #   - not PAL
-def is_tournament_game(filename):
+def is_tournament_game(filename, min_dur=30, min_dmg=100):
     game = Game(filename)
     num_players = 0
     for val in game.start.players:
@@ -23,7 +23,7 @@ def is_tournament_game(filename):
     if (
         not game.start.is_teams and
         num_players == 2 and
-        duration >= 30 and
+        duration >= min_dur and
         not game.start.is_pal
     ):
         # check for damage
@@ -36,23 +36,27 @@ def is_tournament_game(filename):
                     continue
                 dmg = player.leader.post.damage
                 tot_dmg += max(0, dmg - last_dmg[i])
-                if tot_dmg >= 50:
+                if tot_dmg >= min_dmg:
                     done = True
                     break
                 last_dmg[i] = dmg
             if done:
                 break
-        return tot_dmg >= 50
+        return tot_dmg >= min_dmg
 
     return False
 
 
-def filter_tournament_games(filepath):
+def filter_tournament_games(filepath, min_dur=30, min_dmg=100):
     path = Path(filepath)
     tournament_games = []
     for child in path.iterdir():
         try:
-            if is_tournament_game(str(child.resolve())):
+            if is_tournament_game(
+                str(child.resolve()),
+                min_dur=min_dur,
+                min_dmg=min_dmg
+            ):
                 tournament_games.append(str(child.relative_to(path)))
         except:
             pass
