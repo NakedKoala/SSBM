@@ -47,10 +47,11 @@ def is_tournament_game(filename, min_dur=30, min_dmg=100):
     return False
 
 
-def filter_tournament_games(filepath, min_dur=30, min_dmg=100):
+def filter_tournament_games(filepath, min_dur=30, min_dmg=100, mod=1, offset=0):
     path = Path(filepath)
-    tournament_games = []
-    for child in path.iterdir():
+    for i, child in enumerate(path.iterdir()):
+        if i % mod != offset:
+            continue
         try:
             if is_tournament_game(
                 str(child.resolve()),
@@ -60,5 +61,4 @@ def filter_tournament_games(filepath, min_dur=30, min_dmg=100):
                 yield str(child.relative_to(path))
         except:
             pass
-    return tournament_games
 
