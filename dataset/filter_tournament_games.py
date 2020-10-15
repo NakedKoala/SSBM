@@ -10,11 +10,13 @@ def proc_fn(filepath, min_dur, min_dmg, mod, offset, outname, log_every):
         mod=mod, offset=offset
     )
     with open(outname, 'w') as f:
-        for i, game in enumerate(game_list):
+        for i, (name, metadata) in enumerate(game_list):
             if log_every > 0:
                 if (i+1) % log_every == 0:
                     print(i+1, file=sys.stderr)
-            f.write(game + '\n')
+            output = name + ','
+            output += ','.join(key + ":" + str(val) for key, val in metadata.items())
+            f.write(output + '\n')
             f.flush()
 
 
