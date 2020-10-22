@@ -2,6 +2,8 @@ from slippi import Game
 import pandas as pd
 import os
 import pdb 
+from tqdm import tqdm
+import traceback
 
 class SLPParser:
     def __init__(self, src_dir, dest_dir):
@@ -12,18 +14,17 @@ class SLPParser:
                                       "last_hit_by", "combo_count", "flags", "hit_stun", "airborne", "ground", "jumps", "l_cancel"]
         self.split_coord_attributes = ["position", "joystick", "cstick", "triggers"]
     def format_filename(self):
-
+        
         timestamp = int(self.slp_object.metadata.date.timestamp())
-
+       
         characters = []
-        for player in self.slp_object.metadata.players:
+        for player in self.slp_object.start.players:
             if player == None:
                 continue 
-            characters.append(list(player.characters.keys())[0].name)
-        assert(len(characters) == 2)
-        char1, char2 = characters
+            characters.append(player.character.name)
+        
         stage = self.slp_object.start.stage.name
-        return f'{timestamp}_{char1.replace("_","")}_{char2.replace("_", "")}_{stage.replace("_", "")}.csv'
+        return f'{timestamp}_{"_".join(characters)}_{stage.replace("_", "")}'
 
     def proc_attr_value(self, state, att_name):
        
@@ -32,7 +33,6 @@ class SLPParser:
         if att_name == "flags":
            att_value = att_value.__repr__()
         if att_name == "buttons":
-        #    pdb.set_trace()
            att_value = att_value.physical.value 
         if att_name == "triggers":
             att_value = round(att_value.physical.l, 3), round(att_value.physical.r, 3)
@@ -49,10 +49,12 @@ class SLPParser:
         frame_index = frame.index
         dataframe_dict['frame_index'].append(frame_index)
         dataframe_dict['frame_index'].append(frame_index)
-
-        char1_state_pre, char1_state_post = (frame.ports[1].leader.pre, frame.ports[1].leader.post)
-        char2_state_pre, char2_state_post = (frame.ports[2].leader.pre, frame.ports[2].leader.post)
-
+        valid_ports = [ item for item  in frame.ports if item != None]
+        assert(len(valid_ports) == 2)
+      
+        char1_state_pre, char1_state_post = (valid_ports[0].leader.pre, valid_ports[0].leader.post)
+        char2_state_pre, char2_state_post = (valid_ports[1].leader.pre, valid_ports[1].leader.post)
+        
         for att_name in self.pre_frame_attributes:
             if att_name in self.split_coord_attributes:
                 
@@ -84,10 +86,12 @@ class SLPParser:
        df['post_last_hit_by'].fillna(value = 0.0, inplace=True)
        df['post_last_attack_landed'].fillna(value = 0.0, inplace=True)
        df['pre_damage'] = df['pre_damage'].apply(lambda x: x[0])
+       ## TODO: all dev data set have airborne = None. Find out why. Version ?
        df['post_airborne'] = df['post_airborne'].astype(int)
+
        df['pre_state'] = df['pre_state'].astype(int)
        df['post_state'] = df['post_state'].astype(int)
-       pdb.set_trace()
+  
       
       
       
@@ -117,20 +121,28 @@ class SLPParser:
         return ["frame_index"] + pre_frame_cols + post_frame_cols + split_coord_cols
         
     
-    def __call__(self, slp_files):
-
-        for src_fname in slp_files:
+    def __call__(self, rename_only=False):
+        slp_files = [fname for fname in os.listdir(self.src_dir) if ".slp" in fname]
+        
+        for src_fname in tqdm(slp_files):
+                
             self.slp_object = Game(os.path.join(self.src_dir, src_fname))
-
+            
             dest_fname = self.format_filename()
-            
-            dataframe_dict = {col: []  for col in self.compute_df_cols()}
 
-            for frame in self.slp_object.frames:
-                self.proc_frame(dataframe_dict, frame)
-
-            df = pd.DataFrame.from_dict(dataframe_dict)
-            df = self.data_pre_proc_mvp(df)
-            # pdb.set_trace()
-            df.to_csv(os.path.join(self.dest_dir, dest_fname), index=False)
+            if rename_only == True:
+                
+                    os.rename(os.path.join(self.src_dir, src_fname), os.path.join(self.src_dir, dest_fname + '.slp'))
             
+            else:
+                dataframe_dict = {col: []  for col in self.compute_df_cols()}
+
+                for frame in self.slp_object.frames:
+                    self.proc_frame(dataframe_dict, frame)
+
+                df = pd.DataFrame.from_dict(dataframe_dict)
+                df = self.data_pre_proc_mvp(df)
+                
+                df.to_csv(os.path.join(self.dest_dir, dest_fname + ".csv"), index=False)
+        
+                
