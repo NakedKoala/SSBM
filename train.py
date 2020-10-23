@@ -20,23 +20,23 @@ def top_n_accuracy(preds, targets, n):
             correct += 1 
     return correct / targets.shape[0]
 
-def eval(model, val_dl):
+def eval(model, val_dl, device, bce_crit):
     total_mse_loss = 0
     total_loss = 0
     button_preds = []
     button_targets = []
     num_batch = 0
-    mse_crit, bce_crit = MSELoss(reduction='mean'), BCEWithLogitsLoss(reduction='mean')
+    mse_crit = MSELoss(reduction='mean')
     model.eval()
     
     for batch in tqdm(val_dl):
         num_batch += 1
-        
         features, cts_targets, bin_cls_targets = batch
-        cts_o, logits_o = model(features)
-        mse_loss = mse_crit(cts_o, cts_targets)
-        total_mse_loss += mse_loss
-        total_loss +=  bce_crit(logits_o, bin_cls_targets) + mse_loss
+        with torch.no_grad():
+            cts_o, logits_o = model(features)
+            mse_loss = mse_crit(cts_o, cts_targets)
+            total_mse_loss += mse_loss
+            total_loss +=  bce_crit(logits_o, bin_cls_targets) + mse_loss
         button_targets.append(bin_cls_targets)
         button_preds.append(sigmoid(logits_o))
     
@@ -70,11 +70,11 @@ def report_button_cls_metrics(preds, targets, thres=0.5):
         print(f'{button_idx_to_name[button_idx]} acc: {acc[button_idx]} recall: {recall[button_idx]} fscore: {fscore[button_idx]} support: {support[button_idx]}')
     
    
-def train(model, trn_dl, val_dl, epoch, print_out_freq, device):
+def train(model, trn_dl, val_dl, epoch, print_out_freq, device, pos_weigts):
     model.to(device)
 
     optim = Adam(model.parameters(), lr=0.0001)
-    mse_crit, bce_crit = MSELoss(reduction='mean'), BCEWithLogitsLoss(reduction='mean')
+    mse_crit, bce_crit = MSELoss(reduction='mean'), BCEWithLogitsLoss(reduction='mean',pos_weight=torch.tensor(pos_weigts).to(device))
     button_press_thres = 0.5
     
     for i in range(epoch):
@@ -87,6 +87,8 @@ def train(model, trn_dl, val_dl, epoch, print_out_freq, device):
             iter_num += 1
             optim.zero_grad()
             features, cts_targets, bin_cls_targets = batch
+            # import pdb 
+            # pdb.set_trace()
             cts_o, logits_o = model(features)
             mse_loss = mse_crit(cts_o, cts_targets)
             # import pdb 
@@ -106,7 +108,7 @@ def train(model, trn_dl, val_dl, epoch, print_out_freq, device):
         print(f'end of {i}th epoch trn_loss: {epoch_loss / iter_num}')
         report_button_cls_metrics(button_preds, button_targets)         
         print(f'Eval epoch {i}')
-        eval(model, val_dl)
+        eval(model, val_dl, device, bce_crit)
         # import pdb 
         # pdb.set_trace()
                 
