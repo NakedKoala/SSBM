@@ -42,9 +42,9 @@ class SSBMDataset(Dataset):
         self.cts_targets = self.cts_targets[shuffled_idx]
         self.bin_cls_targets = self.bin_cls_targets[shuffled_idx]
         
-        self.features.to(device)
-        self.cts_targets.to(device)
-        self.bin_cls_targets.to(device)
+        self.features = self.features.to(device)
+        self.cts_targets =  self.cts_targets.to(device)
+        self.bin_cls_targets =  self.bin_cls_targets.to(device)
 
         if ds_type == 'dev':
             self.features = self.features[:1000]
