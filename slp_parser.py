@@ -4,6 +4,7 @@ import os
 import pdb 
 from tqdm import tqdm
 import traceback
+import concurrent.futures
 
 class SLPParser:
     def __init__(self, src_dir, dest_dir):
@@ -93,9 +94,7 @@ class SLPParser:
        df['post_state'] = df['post_state'].astype(int)
   
       
-      
-      
-       categorical_cols = ['pre_direction', 'post_direction', 'post_ground', 'post_jumps', 'post_stocks']
+       categorical_cols = ['pre_direction', 'post_direction', 'post_ground', 'post_jumps']
        one_hot_features = [ pd.get_dummies(df[col], prefix=col) for col in categorical_cols]
 
        df = pd.concat([df] + one_hot_features, axis=1)
@@ -119,30 +118,36 @@ class SLPParser:
                 split_coord_cols.append(f'post_{col}_x')
                 split_coord_cols.append(f'post_{col}_y')
         return ["frame_index"] + pre_frame_cols + post_frame_cols + split_coord_cols
-        
+
+    def proc_file(self, src_fname,rename_only=False):
+        try:
+                self.slp_object = Game(os.path.join(self.src_dir, src_fname))
+                
+                dest_fname = self.format_filename()
+
+                if rename_only == True:
+                    
+                        os.rename(os.path.join(self.src_dir, src_fname), os.path.join(self.src_dir, dest_fname + '.slp'))
+                
+                else:
+                    dataframe_dict = {col: []  for col in self.compute_df_cols()}
+
+                    for frame in self.slp_object.frames:
+                        self.proc_frame(dataframe_dict, frame)
+
+                    df = pd.DataFrame.from_dict(dataframe_dict)
+                
+                    assert(df.shape[1] == 33)
+            
+                    df = self.data_pre_proc_mvp(df)
+                    
+                    df.to_csv(os.path.join(self.dest_dir, dest_fname + ".csv"), index=False)
+        except:
+            print(f'Failed to parse {src_fname}')
+            traceback.print_exc()
     
-    def __call__(self, rename_only=False):
+    def __call__(self):
         slp_files = [fname for fname in os.listdir(self.src_dir) if ".slp" in fname]
-        
-        for src_fname in tqdm(slp_files):
-                
-            self.slp_object = Game(os.path.join(self.src_dir, src_fname))
-            
-            dest_fname = self.format_filename()
 
-            if rename_only == True:
-                
-                    os.rename(os.path.join(self.src_dir, src_fname), os.path.join(self.src_dir, dest_fname + '.slp'))
-            
-            else:
-                dataframe_dict = {col: []  for col in self.compute_df_cols()}
-
-                for frame in self.slp_object.frames:
-                    self.proc_frame(dataframe_dict, frame)
-
-                df = pd.DataFrame.from_dict(dataframe_dict)
-                df = self.data_pre_proc_mvp(df)
-                
-                df.to_csv(os.path.join(self.dest_dir, dest_fname + ".csv"), index=False)
-        
-                
+        with concurrent.futures.ProcessPoolExecutor(max_workers=4) as executor:
+            o = list(tqdm(executor.map(self.proc_file, slp_files), total=len(slp_files)))
