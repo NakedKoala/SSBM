@@ -72,7 +72,7 @@ class SSBMDataset(Dataset):
 
         df = df[df['post_character'] == filter_char_id] #12
     
-        features_df, targets_df = df[feat_cols].shift(1).fillna(0), df[target_cols] 
+        features_df, targets_df = df[feat_cols].shift(2).fillna(0), df[target_cols] 
         
         button_values_np = targets_df['pre_buttons'].to_numpy().reshape(-1)
         targets_df.drop('pre_buttons', axis=1, inplace=True)
