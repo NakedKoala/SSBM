@@ -20,13 +20,13 @@ def top_n_accuracy(preds, targets, n):
             correct += 1 
     return correct / targets.shape[0]
 
-def eval(model, val_dl):
+def eval(model, val_dl, device):
     total_mse_loss = 0
     total_loss = 0
     button_preds = []
     button_targets = []
     num_batch = 0
-    mse_crit, bce_crit = MSELoss(reduction='mean'), BCEWithLogitsLoss(reduction='mean',pos_weight=torch.tensor([0, 1.3840e+01, 1.4433e+01, 1.0383e+02, 2.2849e+04, 4.7819e+05, 3.1879e+05]))
+    mse_crit, bce_crit = MSELoss(reduction='mean'), BCEWithLogitsLoss(reduction='mean',pos_weight=torch.tensor([0, 1.3840e+01, 1.4433e+01, 1.0383e+02, 2.2849e+04, 4.7819e+05, 3.1879e+05]).to(device))
     model.eval()
     
     for batch in tqdm(val_dl):
@@ -74,7 +74,7 @@ def train(model, trn_dl, val_dl, epoch, print_out_freq, device):
     model.to(device)
 
     optim = Adam(model.parameters(), lr=0.0001)
-    mse_crit, bce_crit = MSELoss(reduction='mean'), BCEWithLogitsLoss(reduction='mean',pos_weight=torch.tensor([0, 1.3840e+01, 1.4433e+01, 1.0383e+02, 2.2849e+04, 4.7819e+05, 3.1879e+05]))
+    mse_crit, bce_crit = MSELoss(reduction='mean'), BCEWithLogitsLoss(reduction='mean',pos_weight=torch.tensor([0, 1.3840e+01, 1.4433e+01, 1.0383e+02, 2.2849e+04, 4.7819e+05, 3.1879e+05]).to(device))
     button_press_thres = 0.5
     
     for i in range(epoch):
@@ -108,7 +108,7 @@ def train(model, trn_dl, val_dl, epoch, print_out_freq, device):
         print(f'end of {i}th epoch trn_loss: {epoch_loss / iter_num}')
         report_button_cls_metrics(button_preds, button_targets)         
         print(f'Eval epoch {i}')
-        eval(model, val_dl)
+        eval(model, val_dl, device)
         # import pdb 
         # pdb.set_trace()
                 
