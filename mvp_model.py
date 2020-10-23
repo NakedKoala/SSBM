@@ -10,21 +10,22 @@ import pdb
 
 class SSBM_MVP(nn.Module):
      action_state_dim = 383
-     input_dim = 30
+     input_dim = 26
      cts_out_dim = 6
-     logit_out_dim = 13
+     logit_out_dim = 7
      num_embedding_features = 2
-     def __init__(self, embedding_dim, hidden_sizes = [200, 100]):
+     def __init__(self, embedding_dim, hidden_sizes = [1024, 512, 256]):
             super().__init__()
-            assert(len(hidden_sizes) == 2)
+            assert(len(hidden_sizes) == 3)
             self.action_state_embedding = Embedding(num_embeddings=SSBM_MVP.action_state_dim, \
                                              embedding_dim=embedding_dim)
             in_features_dim = (SSBM_MVP.input_dim - SSBM_MVP.num_embedding_features) +  (embedding_dim * SSBM_MVP.num_embedding_features)
             self.in_features_dim = in_features_dim
             self.dense1 = Linear(in_features=in_features_dim , out_features=hidden_sizes[0])
             self.dense2 = Linear(in_features=hidden_sizes[0] , out_features=hidden_sizes[1])
-            self.cts_out = Linear(in_features=hidden_sizes[1] , out_features=SSBM_MVP.cts_out_dim )
-            self.logits_out = Linear(in_features=hidden_sizes[1] , out_features=SSBM_MVP.logit_out_dim)
+            self.dense3 = Linear(in_features=hidden_sizes[1] , out_features=hidden_sizes[2])
+            self.cts_out = Linear(in_features=hidden_sizes[-1] , out_features=SSBM_MVP.cts_out_dim )
+            self.logits_out = Linear(in_features=hidden_sizes[-1] , out_features=SSBM_MVP.logit_out_dim)
             
      def forward(self, x):
          
@@ -36,6 +37,7 @@ class SSBM_MVP(nn.Module):
         
          o =  relu(self.dense1(features))
          o =  relu(self.dense2(o))
+         o =  relu(self.dense3(o))
          cts_o = torch.tanh(self.cts_out(o))
          logits_o = self.logits_out(o)
          

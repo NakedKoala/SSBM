@@ -3,36 +3,33 @@ from torch.utils.data import DataLoader
 from dataset import SSBMDataset
 from mvp_model import SSBM_MVP
 from train import train
+import torch
 
-## Sample usage for the parser
-# parser = SLPParser(src_dir="./", dest_dir="./")
-# parser(["test.slp"])
-
-
+# Sample usage for the parser
+# parser = SLPParser(src_dir="./dev_data_slp", dest_dir="./dev_data_csv")
 
 
-## Sample usage for the SSBM dataset
 
-# ds = SSBMDataset(src_dir="./", filter_char_id=12)
-# dl = DataLoader(ds, batch_size=4, shuffle=False, num_workers=0)
-
-# for batch in dl:
-#     features, targets = batch
-#     print(features)
-#     print(features.shape)
-#     print(targets)
-#     print(targets.shape)
-#     break
 
 
 ## Sample usage for the SSBM_MVP model and training loop:
+model = SSBM_MVP(100)
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+print(f'Training on device: {device}')
+trn_ds = SSBMDataset(src_dir="./dev_data_csv/train", filter_char_id=2, device=device)
+val_ds = SSBMDataset(src_dir="./dev_data_csv/valid", filter_char_id=2, device=device)
+trn_dl = DataLoader(trn_ds, batch_size=256, shuffle=True, num_workers=0)
+val_dl = DataLoader(val_ds, batch_size=256, shuffle=True, num_workers=0)
 
-model = SSBM_MVP(30)
-ds = SSBMDataset(src_dir="./", filter_char_id=12, is_dev=True)
-dl = DataLoader(ds, batch_size=64, shuffle=False, num_workers=0)
-train(model, dl, 500,  20)
+
+# import pdb 
+# pdb.set_trace()
+train(model, trn_dl, val_dl, 10,  5000, device)
 
 
 
 
 
+# if __name__ == '__main__':
+#     parser = SLPParser(src_dir="./dev_data_slp", dest_dir="./dev_data_csv")
+#     parser()
