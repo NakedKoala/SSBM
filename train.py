@@ -31,7 +31,6 @@ def eval(model, val_dl):
     
     for batch in tqdm(val_dl):
         num_batch += 1
-        
         features, cts_targets, bin_cls_targets = batch
         with torch.no_grad():
             cts_o, logits_o = model(features)
@@ -88,7 +87,8 @@ def train(model, trn_dl, val_dl, epoch, print_out_freq, device):
             iter_num += 1
             optim.zero_grad()
             features, cts_targets, bin_cls_targets = batch
-            
+            # import pdb 
+            # pdb.set_trace()
             cts_o, logits_o = model(features)
             mse_loss = mse_crit(cts_o, cts_targets)
             # import pdb 

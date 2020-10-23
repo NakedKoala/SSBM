@@ -10,10 +10,10 @@ import pdb
 
 class SSBM_MVP(nn.Module):
      action_state_dim = 383
-     input_dim = 26
+     input_dim = 65
      cts_out_dim = 6
      logit_out_dim = 7
-     num_embedding_features = 2
+     num_embedding_features = 4
      def __init__(self, embedding_dim, hidden_sizes = [1024, 512, 256]):
             super().__init__()
             assert(len(hidden_sizes) == 3)
