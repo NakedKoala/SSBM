@@ -1,3 +1,5 @@
 *.slp
 *.csv
 *.zip
+./dev_data_csv/*
+./dev_data_slp/*
