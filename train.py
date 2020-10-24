@@ -26,7 +26,7 @@ def eval(model, val_dl, device, bce_crit):
     button_preds = []
     button_targets = []
     num_batch = 0
-    mse_crit = (reduction='mean')
+    mse_crit = MSELoss(reduction='mean')
     model.eval()
     
     for batch in tqdm(val_dl):
