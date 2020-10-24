@@ -74,7 +74,7 @@ def train(model, trn_dl, val_dl, epoch, print_out_freq, device, pos_weigts):
     model.to(device)
 
     optim = Adam(model.parameters(), lr=0.0001)
-    mse_crit, bce_crit = MSELoss(reduction='mean'), BCEWithLogitsLoss(reduction='mean',pos_weight=torch.tensor(pos_weigts))
+    mse_crit, bce_crit = MSELoss(reduction='mean'), BCEWithLogitsLoss(reduction='mean',pos_weight=torch.tensor(pos_weigts).to(device))
     button_press_thres = 0.5
     
     for i in range(epoch):
