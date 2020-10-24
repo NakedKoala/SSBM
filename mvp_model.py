@@ -10,7 +10,7 @@ import pdb
 
 class SSBM_MVP(nn.Module):
      action_state_dim = 383
-     input_dim = 65
+     input_dim = 66
      cts_out_dim = 6
      logit_out_dim = 7
      num_embedding_features = 4
