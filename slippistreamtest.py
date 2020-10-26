@@ -16,7 +16,7 @@ def poll_game_state(filename):
         parse(f.stdout, handlers)
 
 
-poll_game_state("/home/cs488/Desktop/Game_20201015T015408.slp")
+poll_game_state("/home/cs488/Desktop/Game_20201026T190916.slp")
 
 #handlers = {ParseEvent.FRAME: test}
 #while True:

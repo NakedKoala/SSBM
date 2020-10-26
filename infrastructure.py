@@ -8,21 +8,20 @@ import time
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
+import random
+
+
 DOLPHIN_EXE_PATH = '/home/cs488/Desktop/slippi/AppRun' # TODO: modularize to arg
 
 
 class MeleeAI:
     def __init__(self):
         self.slippi_replay_file = ""
+        self.looking_for_file = False
 
-        self.console = melee.Console(path=DOLPHIN_EXE_PATH,
-                                    slippi_address="127.0.0.1",
-                                    slippi_port=51441,
-                                    blocking_input=False,
-                                    polling_mode=False,
-                                    logger=None)
+        self.console = melee.Console(path=DOLPHIN_EXE_PATH)
         self.console.render = True
-        self.controller = melee.Controller(console=self.console, port=2, type=melee.ControllerType.STANDARD)
+        self.controller = melee.Controller(self.console, 2)
         self.console.run()
 
         print("Connecting to console...")
@@ -38,6 +37,8 @@ class MeleeAI:
 
 
     def wait_for_slippi_file(self):
+        slippi_path = "/home/cs488/Slippi"  # TODO: modularize to a cli arg
+        observer = Observer()
 
         class SlippiFileDetectionHandler(FileSystemEventHandler):
             def __init__(self, agent):
@@ -46,22 +47,20 @@ class MeleeAI:
             def on_created(self, event):
                 # TODO: regex to make sure its actually a slippi file
                 self.agent.slippi_replay_file = event.src_path
+                print(event.src_path)
+                observer.stop()
 
-        slippi_path = "/home/cs488/Slippi"  # TODO: modularize to a cli arg
         event_handler = SlippiFileDetectionHandler(self)
-        observer = Observer()
         observer.schedule(event_handler, path=slippi_path, recursive=False)
         observer.start()
-        while True:
-            if self.slippi_replay_file != "":
-                break
-            time.sleep(1)
+        self.looking_for_file = True
 
-        observer.stop()
-        observer.join()
+        # list_of_files = glob.glob('/home/cs488/Slippi/*')  # * means all if need specific format then *.csv
+        # latest_file = max(list_of_files, key=os.path.getctime)
+        # self.slippi_replay_file = latest_file
 
     def next_state(self):
-            self.controller.release_all()  # releases buttons pressed last frame
+            #self.controller.release_all()  # releases buttons pressed last frame
             return self.console.step()  # get frame data
 
     def featurize_frame(self, frame):
@@ -74,18 +73,33 @@ class MeleeAI:
         return frame
 
     def parse_frame(self, frame):
+        print(type(frame))
         featurized_frame = self.featurize_frame(frame)
         command = self.get_model_command(featurized_frame)
-        print(type(command))
+        #print(type(command))
         # self.controller.press_button(command)
 
     def game_loop(self):
-        # this might need to be done sooner, since it could create the file before libmelee realizes we are in game
-        self.wait_for_slippi_file()
-        f = subprocess.Popen(['tail', '-c+1', '-f', self.slippi_replay_file], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        handlers = {ParseEvent.FRAME: self.parse_frame}
         while True:
-            parse(f.stdout, handlers)
+            gamestate = self.next_state()
+            if gamestate is None:  # loop happened before game state changed/posted new frame
+                continue
+            self.controller.release_all()
+
+            action = random.randint(0, 4)
+            if(action == 0):
+                self.controller.press_button(melee.enums.Button.BUTTON_A)
+            elif(action == 1):
+                self.controller.press_button(melee.enums.Button.BUTTON_B)
+            elif(action == 2):
+                self.controller.press_button(melee.enums.Button.BUTTON_D_UP)
+            else:
+                self.controller.press_button(melee.enums.Button.BUTTON_D_DOWN)
+
+        # f = subprocess.Popen(['tail', '-c+1', '-f', self.slippi_replay_file], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        # handlers = {ParseEvent.FRAME: self.parse_frame}
+        # while True:
+        #     parse(f.stdout, handlers)
 
     def start(self):
         while True:
@@ -96,16 +110,15 @@ class MeleeAI:
             if gamestate.menu_state == melee.enums.Menu.IN_GAME:
                 self.game_loop()
 
-            # TODO: get into game somehow but for now do nothing
-            # else:
-                # melee.menuhelper.MenuHelper.menu_helper_simple(gameState,
-                #                                               controller,
-                #                                               2,
-                #                                               melee.enums.Character.FOX,
-                #                                               melee.enums.Stage.FINAL_DESTINATION,
-                #                                               "YUNA#917",
-                #                                               autostart=True,
-                #                                               swag=True)
+            elif gamestate.menu_state == melee.enums.Menu.CHARACTER_SELECT:
+                melee.menuhelper.MenuHelper.choose_character(melee.enums.Character.CPTFALCON, gamestate, 2, self.controller, swag=True)
+            elif gamestate.menu_state == melee.enums.Menu.STAGE_SELECT:
+                if not self.looking_for_file:
+                    self.wait_for_slippi_file()
+                melee.menuhelper.MenuHelper.choose_stage(melee.enums.Stage.FINAL_DESTINATION, gamestate, self.controller)
+
+            else:
+                self.controller.release_all()
 
 if __name__ == "__main__":
     agent = MeleeAI()
