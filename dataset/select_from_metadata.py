@@ -28,8 +28,9 @@ if __name__ == '__main__':
     try:
         lines = infile.read().strip().split('\n')
         for line in lines:
-            entries = line.split(',')
-            name = entries.pop(0)
+            entries = line.split('|||')
+            name = entries[0]
+            entries = entries[1].split(',')
             metadata = {}
             for entry in entries:
                 tokens = entry.split(':')

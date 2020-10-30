@@ -14,7 +14,8 @@ def proc_fn(filepath, min_dur, min_dmg, mod, offset, outname, log_every):
             if log_every > 0:
                 if (i+1) % log_every == 0:
                     print(i+1, file=sys.stderr)
-            output = name + ','
+            # reasonable assumption that no file name contains '|||'
+            output = name + '|||'
             output += ','.join(key + ":" + str(val) for key, val in metadata.items())
             f.write(output + '\n')
             f.flush()
