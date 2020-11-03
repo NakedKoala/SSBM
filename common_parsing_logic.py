@@ -86,6 +86,11 @@ def proc_df(df, char_id, opponent_id, frame_delay, button_press_indicator_dim):
         char_cmd_bin_cls_targets_np = proc_button_press(char_cmd_button_values_np, button_press_indicator_dim)
         opp_cmd_bin_cls_targets_np = proc_button_press(opp_cmd_button_values_np, button_press_indicator_dim)
 
+        # TODO model is currently fed in opponent controller inputs.
+        # This might be regarded as cheating from human POV, so we should
+        # consider removing opponent controller input from features in the future.
+        # Ideally, the model will still be able to tell what the opponent is doing
+        # by looking at position + action state + state age
         features_np = np.concatenate([features_np, char_cmd_df.to_numpy(), opp_cmd_df.to_numpy()], axis=1)
         scaler = StandardScaler()
         features_np[:,4:] = scaler.fit_transform(features_np[:,4:])
