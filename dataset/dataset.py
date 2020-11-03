@@ -1,6 +1,7 @@
 """
     Various dataset utilities, including:
         - approximately filtering out non-tournament matches
+        - counting distinct controller inputs for each character
 """
 
 from pathlib import Path
@@ -80,3 +81,63 @@ def filter_tournament_games(filepath, min_dur=30, min_dmg=100, mod=1, offset=0):
         except:
             pass
 
+
+class ControllerState(object):
+    def __init__(self, joystick, cstick, triggers, buttons):
+        self.joystick = joystick
+        self.cstick = cstick
+        self.triggers = triggers
+        self.buttons = buttons
+
+# Returns a list of all inputs that each player makes during a game, along with metadata
+def get_controller_states(filename):
+    game = slippi.Game(filename)
+    data_by_port = [[], [], [], []]
+    for frame in game.frames:
+        for i, port in enumerate(frame.ports):
+            if port:
+                data_by_port[i].append(
+                    ControllerState(
+                        port.leader.pre.joystick,
+                        port.leader.pre.cstick,
+                        port.leader.pre.triggers.logical,
+                        port.leader.pre.buttons.logical,
+                    )
+                )
+    characters = []
+    for i, val in enumerate(game.start.players):
+        if val:
+            characters.append(val.character)
+        else:
+            characters.append(None)
+    return data_by_port, characters
+
+
+def process_controller_states(dirpath, proc_fn, mod=1, offset=0):
+    path = Path(dirpath)
+    for i, child in enumerate(sorted(path.iterdir())):
+        if i % mod != offset:
+            continue
+        try:
+            states, characters = get_controller_states(str(child.resolve()))
+            proc_fn(states, characters)
+            yield child
+        except:
+            pass
+
+
+class ProcessControllerState(object):
+    def __init__(self):
+        self.data_by_characters = {}
+
+    def update(self, states, characters):
+        for i, character in enumerate(characters):
+            if character:
+                if character not in self.data_by_characters:
+                    self.data_by_characters[character] = {}
+                dict_to_upd = self.data_by_characters[character]
+                for controller_state in states[i]:
+                    buttons = controller_state.buttons
+                    if buttons not in dict_to_upd:
+                        dict_to_upd[buttons] = 0
+                    dict_to_upd[buttons] += 1
