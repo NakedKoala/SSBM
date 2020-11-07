@@ -7,8 +7,8 @@ import pdb
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 import traceback
-from common_parsing_logic import proc_df
-
+from common_parsing_logic import proc_df,  scale
+from torchvision.transforms import Normalize
 
 
 class SSBMDataset(Dataset):
@@ -40,11 +40,15 @@ class SSBMDataset(Dataset):
         self.features = torch.cat(self.features, dim=0)
         self.cts_targets = torch.cat(self.cts_targets, dim=0)
         self.bin_cls_targets = torch.cat(self.bin_cls_targets, dim=0)
+        self.features[:,4:52] = scale(self.features[:,4:52])
+        
+        import pdb 
+        pdb.set_trace()
 
-        shuffled_idx = torch.randperm(len(self.features))
-        self.features = self.features[shuffled_idx]
-        self.cts_targets = self.cts_targets[shuffled_idx]
-        self.bin_cls_targets = self.bin_cls_targets[shuffled_idx]
+        # shuffled_idx = torch.randperm(len(self.features))
+        # self.features = self.features[shuffled_idx]
+        # self.cts_targets = self.cts_targets[shuffled_idx]
+        # self.bin_cls_targets = self.bin_cls_targets[shuffled_idx]
         
         self.features = self.features.to(device)
         self.cts_targets =  self.cts_targets.to(device)

@@ -5,6 +5,33 @@ import numpy as np
 import torch
 from sklearn.preprocessing import StandardScaler
 
+def scale(tensor):
+    mean = torch.tensor([1.41423043e+00,  7.85902318e+00,  1.41610300e+00,  7.80339904e+00,
+        5.54843011e+01,  1.20621781e+01,  8.08904896e-01,  5.88113544e+01,
+        1.83485191e+01,  5.59438437e+00,  6.52009154e-01,  5.29972526e-01,
+        5.54842529e+01,  5.03226905e-01,  4.96555996e-01,  5.03235357e-01,
+        4.96547543e-01,  2.71878764e+00,  1.67740513e+00,  3.57006903e+00,
+        1.67848391e+00,  3.52045915e+00,  4.57292101e+01,  1.09459958e+01,
+        9.26322530e-01,  5.92744284e+01,  1.58369980e+01,  6.77617745e+00,
+        4.64083937e-01,  4.64926234e-01,  4.57292101e+01,  5.07767453e-01,
+        4.92015448e-01,  5.07770270e-01,  4.92012630e-01,  2.71254100e+00,
+        4.33544745e-03, -5.96091991e-02, -1.71527698e-03, -1.15610866e-02,
+        1.12961590e-01,  8.38983897e-02, -9.18879334e-04, -3.93047363e-02,
+       -2.32658232e-03,  2.02196862e-03,  8.83636491e-02,  7.81077922e-02])
+    std = torch.tensor([ 63.15214909, 31.85448842, 63.20340685, 31.88907913, 45.4699356 ,
+       12.17418325,  0.47170615,  3.79583704, 17.29841457, 17.53603757,
+        1.09023949,  0.49910085, 45.46992937,  0.49998957,  0.49998814,
+        0.49998951,  0.4999881 ,  1.07013528, 67.62576071, 25.21796792,
+       67.71633154, 25.23324746, 38.06941933, 11.66731482,  0.85936804,
+        2.81122129, 12.55309953, 23.5396452 ,  0.96226853,  0.49876832,
+       38.06941933,  0.49993966,  0.49993625,  0.49993964,  0.4999362 ,
+        1.07326573,  0.65573621,  0.37714628,  0.16054365,  0.15059148,
+        0.28983791,  0.25826303,  0.60554965,  0.44761662,  0.11764879,
+        0.13110503,  0.2549518 ,  0.24309364])
+    return (tensor - mean) / std
+      
+       
+
 def proc_button_press(buttons_values_np, button_press_indicator_dim):
 
         def convert_button_value_to_indicator_vector(value):
@@ -82,8 +109,13 @@ def proc_df(df, char_id, opponent_id, frame_delay, button_press_indicator_dim):
         opp_cmd_bin_cls_targets_np = proc_button_press(opp_cmd_button_values_np, button_press_indicator_dim)
 
         features_np = np.concatenate([features_np, char_cmd_df.to_numpy(), opp_cmd_df.to_numpy()], axis=1)
-        scaler = StandardScaler()
-        features_np[:,4:] = scaler.fit_transform(features_np[:,4:])
+       
+        # scaler = StandardScaler()
+        # features_np[:,4:] = scaler.fit_transform(features_np[:,4:])
+        # 4 -> 52 
+        # import pdb 
+        # pdb.set_trace()
+
         features_np = np.concatenate([features_np, char_cmd_bin_cls_targets_np, opp_cmd_bin_cls_targets_np], axis=1)
 
         cts_targets_np = char_targets_df.to_numpy()
@@ -130,7 +162,11 @@ def data_pre_proc_mvp(df):
 
     
     categorical_cols = ['pre_direction', 'post_direction']
-    one_hot_features = [ pd.get_dummies(df[col], prefix=col) for col in categorical_cols]
+    # import pdb 
+    # pdb.set_trace()
+    one_hot_features = [ pd.get_dummies([1, -1], prefix=col) for col in categorical_cols]
+    # import pdb 
+    # pdb.set_trace()
 
     df = pd.concat([df] + one_hot_features, axis=1)
     

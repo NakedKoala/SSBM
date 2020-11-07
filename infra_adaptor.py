@@ -7,8 +7,8 @@ import pandas as pd
 import torch
 
 def convert_frame_to_input_tensor(frame, char_id, opponent_id):
+ 
     dataframe_dict = initialize_dataframe_dict(SLPParser.pre_frame_attributes, SLPParser.post_frame_attributes, SLPParser.split_coord_attributes)
-
     proc_frame(dataframe_dict, frame, SLPParser.pre_frame_attributes, SLPParser.post_frame_attributes, SLPParser.split_coord_attributes)
     df = pd.DataFrame.from_dict(dataframe_dict)
     df = data_pre_proc_mvp(df)
