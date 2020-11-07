@@ -87,6 +87,9 @@ def train(model, trn_dl, val_dl, epoch, print_out_freq, device, pos_weigts):
             iter_num += 1
             optim.zero_grad()
             features, cts_targets, bin_cls_targets = batch
+            features = features.to(device)
+            cts_targets = cts_targets.to(device)
+            bin_cls_targets = bin_cls_targets.to(device)
             # import pdb 
             # pdb.set_trace()
             cts_o, logits_o = model(features)
