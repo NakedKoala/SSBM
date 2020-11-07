@@ -30,7 +30,8 @@ class SSBMDataset(Dataset):
             try:
                 df = pd.read_csv(csv_path, index_col="frame_index")
                 features, cts_targets, bin_cls_targets = proc_df(df, char_id, opponent_id, SSBMDataset.frame_delay, SSBMDataset.button_press_indicator_dim)
-
+                features[:,4:52] = scale(features[:,4:52])
+                
                 # align features
                 if window_size > 0:
                     aligned_features_list = []
@@ -52,10 +53,10 @@ class SSBMDataset(Dataset):
         self.features = torch.cat(self.features, dim=0)
         self.cts_targets = torch.cat(self.cts_targets, dim=0)
         self.bin_cls_targets = torch.cat(self.bin_cls_targets, dim=0)
-        self.features[:,4:52] = scale(self.features[:,4:52])
         
-        import pdb 
-        pdb.set_trace()
+      
+        
+        
 
         self.features = self.features.to(device)
         self.cts_targets =  self.cts_targets.to(device)
