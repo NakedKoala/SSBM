@@ -29,7 +29,7 @@ def eval(model, val_dl, device, bce_crit):
     mse_crit = MSELoss(reduction='mean')
     model.eval()
     
-    for batch in tqdm(val_dl):
+    for batch in tqdm(val_dl, position=0, leave=True):
         num_batch += 1
         features, cts_targets, bin_cls_targets = batch
         features = features.to(device)
