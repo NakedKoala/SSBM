@@ -82,7 +82,7 @@ class SSBMDataset(Dataset):
             idx += len(self)
         # find which game and which frame in that game
         game_idx = find_le_idx(self.frame_splits, idx)
-        print(game_idx)
+        # print(game_idx)
         frame_idx = idx - self.frame_splits[game_idx]
         first_frame = max(0, frame_idx - self.window_size + 1)
         frame_features = self.features_per_game[game_idx][first_frame:frame_idx + 1]
