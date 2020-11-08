@@ -32,6 +32,9 @@ def eval(model, val_dl, device, bce_crit):
     for batch in tqdm(val_dl):
         num_batch += 1
         features, cts_targets, bin_cls_targets = batch
+        features = features.to(device)
+        cts_targets = cts_targets.to(device)
+        bin_cls_targets = bin_cls_targets.to(device)
         with torch.no_grad():
             cts_o, logits_o = model(features)
             mse_loss = mse_crit(cts_o, cts_targets)
