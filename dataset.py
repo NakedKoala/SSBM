@@ -34,7 +34,7 @@ class SSBMDataset(Dataset):
         self.window_size = window_size
         self.device = device
 
-        for csv_path in tqdm(self.csv_files):
+        for csv_path in tqdm(self.csv_files, position=0, leave=True):
             try:
                 df = pd.read_csv(csv_path, index_col="frame_index")
                 features, cts_targets, bin_cls_targets = proc_df(df, char_id, opponent_id, SSBMDataset.frame_delay, SSBMDataset.button_press_indicator_dim)

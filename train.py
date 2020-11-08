@@ -83,7 +83,7 @@ def train(model, trn_dl, val_dl, epoch, print_out_freq, device, pos_weigts):
         button_targets = []
         button_preds = []
         model.train()
-        for batch in tqdm(trn_dl):
+        for batch in tqdm(trn_dl, position=0, leave=True):
             iter_num += 1
             optim.zero_grad()
             features, cts_targets, bin_cls_targets = batch
