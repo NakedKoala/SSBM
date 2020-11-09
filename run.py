@@ -26,7 +26,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 trn_ds = SSBMDataset(src_dir="./", char_id=2, opponent_id=1, window_size=1, device=device)
 trn_dl = DataLoader(trn_ds, batch_size=256, shuffle=True, num_workers=0)
 
-# model = SSBM_LSTM(100, hidden_size=256, num_layers=2, bidirectional=True)
+# model = SSBM_LSTM(100, 50, hidden_size=256, num_layers=1, bidirectional=False)
 model = SSBM_MVP(100, 50)
 # for batch in trn_dl:
 #     feat, cts_targets, button_targets = batch
@@ -35,7 +35,7 @@ model = SSBM_MVP(100, 50)
 #     pdb.set_trace()
 
 # model = SSBM_MVP(100)
-train(model, trn_dl, trn_dl, 5,  5000, device, [1] * 5)
+train(model, trn_dl, trn_dl, 20,  5000, device, [1] * 5)
 
 
 # Sample usage: infra adaptors

@@ -45,9 +45,8 @@ def eval(model, val_dl, device):
         button_preds.append(softmax(logits_o))
     
     print(f'val_loss: {total_loss.item()/num_batch} val_mse: {total_mse_loss.item()/num_batch}')
-    button_preds = torch.cat(button_preds, dim=0).to('cpu').detach().numpy()
-    button_labels = torch.cat(button_labels, dim=0).to('cpu').detach().numpy()  
-    print(f'top_3_acc: {top_n_accuracy(button_preds, button_labels, 3)}  top_1_acc: {top_n_accuracy(button_preds, button_labels, 1)}')    
+    eval_button_preds(button_preds, button_labels)
+   
     # report_button_cls_metrics(button_preds,button_targets)
         
 def report_button_cls_metrics(preds, targets, thres=0.5):
@@ -72,6 +71,24 @@ def report_button_cls_metrics(preds, targets, thres=0.5):
         print(f'{button_idx_to_name[button_idx]} acc: {acc[button_idx]} recall: {recall[button_idx]} fscore: {fscore[button_idx]} support: {support[button_idx]}')
     
    
+def eval_button_preds(button_preds, button_labels):
+    button_preds = torch.cat(button_preds, dim=0).to('cpu').detach().numpy()
+    button_labels = torch.cat(button_labels, dim=0).to('cpu').detach().numpy()
+
+    f1_button_preds = np.array([ item for index, item in enumerate(button_preds) if button_labels[index] != 0])
+    f1_button_labels = np.array([ item for item in button_labels if item != 0])
+    # import pdb 
+    # pdb.set_trace()
+    # f2_button_preds = np.array([ item for item in button_preds if item != 0])
+    # f2_button_labels = np.array([ item for index, item in enumerate(button_labels) if button_preds[index] != 0])
+
+    # import pdb 
+    # pdb.set_trace()
+    print(f'top_3_acc: {top_n_accuracy(button_preds, button_labels, 3)}  top_1_acc: {top_n_accuracy(button_preds, button_labels, 1)}')   
+    print(f'f1_top_3_acc: {top_n_accuracy(f1_button_preds, f1_button_labels, 3)}  f1_top_1_acc: {top_n_accuracy(f1_button_preds, f1_button_labels, 1)}')
+    # print(f'f2_top_3_acc: {top_n_accuracy(f2_button_preds, f2_button_labels, 3)}  f2_top_1_acc: {top_n_accuracy(f2_button_preds, f2_button_labels, 1)}')          
+   
+
 def train(model, trn_dl, val_dl, epoch, print_out_freq, device, pos_weigts):
     model.to(device)
 
@@ -109,12 +126,9 @@ def train(model, trn_dl, val_dl, epoch, print_out_freq, device, pos_weigts):
              
             if iter_num % print_out_freq == 0:
                 print(f'epoch: {i} trn_loss: {epoch_loss / iter_num}')
-        button_preds = torch.cat(button_preds, dim=0).to('cpu').detach().numpy()
-        button_labels = torch.cat(button_labels, dim=0).to('cpu').detach().numpy()
+
         print(f'end of {i}th epoch trn_loss: {epoch_loss / iter_num}')
-        # import pdb 
-        # pdb.set_trace()
-        print(f'top_3_acc: {top_n_accuracy(button_preds, button_labels, 3)}  top_1_acc: {top_n_accuracy(button_preds, button_labels, 1)}')    
+        eval_button_preds(button_preds, button_labels)
         print(f'Eval epoch {i}')
         eval(model, val_dl, device)
         # import pdb 

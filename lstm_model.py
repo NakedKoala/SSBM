@@ -10,16 +10,19 @@ import pdb
 
 class SSBM_LSTM(nn.Module):
      action_state_dim = 383
-     input_dim = 66
+     button_combination_dim = 32
+     input_dim = 54
      cts_out_dim = 6
-     logit_out_dim = 7
-     num_embedding_features = 4
-     def __init__(self, embedding_dim, hidden_size = 256, num_layers = 1, bidirectional=False, dropout_p=0.2):
+     logit_out_dim = 32
+     num_embedding_features = 6
+     def __init__(self, action_embedding_dim, button_embedding_dim, hidden_size = 256, num_layers = 1, bidirectional=False, dropout_p=0.2):
             super().__init__()
             
             self.action_state_embedding = Embedding(num_embeddings=SSBM_LSTM.action_state_dim, \
-                                             embedding_dim=embedding_dim)
-            self.in_features_dim = (SSBM_LSTM.input_dim - SSBM_LSTM.num_embedding_features) +  (embedding_dim * SSBM_LSTM.num_embedding_features)
+                                                    embedding_dim=action_embedding_dim)
+            self.button_combination_embedding = Embedding(num_embeddings=SSBM_LSTM.button_combination_dim, \
+                                                    embedding_dim=button_embedding_dim)
+            self.in_features_dim = (SSBM_LSTM.input_dim - SSBM_LSTM.num_embedding_features) +  (4 * action_embedding_dim + 2 * button_embedding_dim)
             if bidirectional == True:
                self.num_directions = 2 
             else:
@@ -28,7 +31,7 @@ class SSBM_LSTM(nn.Module):
             self.hidden_size = hidden_size
             # import pdb 
             # pdb.set_trace()
-            self.LSTM = LSTM(input_size = self.in_features_dim, hidden_size= hidden_size, num_layers=num_layers, batch_first=True, dropout=dropout_p, bidirectional=bidirectional)
+            self.LSTM = LSTM(input_size = self.in_features_dim, hidden_size= hidden_size, num_layers=num_layers, batch_first=True, bidirectional=bidirectional)
             
             self.dropout = Dropout(p=dropout_p)
             self.cts_out = Linear(in_features=hidden_size * self.num_directions, out_features=SSBM_LSTM.cts_out_dim )
@@ -40,9 +43,15 @@ class SSBM_LSTM(nn.Module):
          batch_size = x.shape[0]
          seq_len = x.shape[1]
 
-         embed_idx, regular_feat = x[:,:,0:SSBM_LSTM.num_embedding_features].long(), x[:,:,SSBM_LSTM.num_embedding_features:]
-         embed_feat = self.action_state_embedding(embed_idx.reshape(-1)).reshape(batch_size, seq_len, -1)
-         features = torch.cat([embed_feat, regular_feat], axis=-1).float()
+         embed_indices, regular_feat = x[:,:,0:SSBM_LSTM.num_embedding_features].long(), x[:,:,SSBM_LSTM.num_embedding_features:]
+         action_embed_idx = embed_indices[:,:,:4]
+         button_combination_idx = embed_indices[:,:,4:]
+        #  import pdb 
+        #  pdb.set_trace()
+         action_embed_feat = self.action_state_embedding(action_embed_idx.reshape(-1)).reshape(batch_size, seq_len, -1)
+         button_embed_feat = self.button_combination_embedding(button_combination_idx.reshape(-1)).reshape(batch_size, seq_len, -1)
+
+         features = torch.cat([action_embed_feat, button_embed_feat, regular_feat], axis=-1).float()
        
          assert(features.shape == (batch_size, seq_len, self.in_features_dim))
          # hn -> (1, batch, hidden_dim)
