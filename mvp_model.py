@@ -13,7 +13,8 @@ class SSBM_MVP(nn.Module):
      button_combination_dim = 32
      input_dim = 54
      cts_out_dim = 6
-     logit_out_dim = 5
+     logit_out_dim = 32
+#      logit_out_dim = 5
      num_embedding_features = 6
 
      def __init__(self, action_embedding_dim, button_embedding_dim, hidden_sizes = [1024, 512, 256]):

@@ -85,7 +85,7 @@ def proc_button_press(buttons_values_np, button_press_indicator_dim, bitmap=Fals
     
         return button_targets_np
 
-def proc_df(df, char_id, opponent_id, frame_delay, button_press_indicator_dim):
+def proc_df(df, char_id, opponent_id, frame_delay, button_press_indicator_dim, dist=True):
 
 
         feat_cols = ['pre_state',  'post_state','pre_position_x', 'pre_position_y',  'post_position_x', 'post_position_y', \
@@ -117,8 +117,10 @@ def proc_df(df, char_id, opponent_id, frame_delay, button_press_indicator_dim):
         char_cmd_df.drop('pre_buttons', axis=1, inplace=True)
         opp_cmd_df.drop('pre_buttons', axis=1, inplace=True)
 
-
-        char_target_button_targets_np = proc_button_press(char_target_button_values_np, button_press_indicator_dim, bitmap=True)
+        if dist == True:
+            char_target_button_targets_np = proc_button_press(char_target_button_values_np, button_press_indicator_dim)
+        else:
+            char_target_button_targets_np = proc_button_press(char_target_button_values_np, button_press_indicator_dim, bitmap=True)
         char_cmd_button_targets_np = proc_button_press(char_cmd_button_values_np, button_press_indicator_dim)
         opp_cmd_button_targets_np = proc_button_press(opp_cmd_button_values_np, button_press_indicator_dim)
 
@@ -149,7 +151,7 @@ def proc_df(df, char_id, opponent_id, frame_delay, button_press_indicator_dim):
 
         assert(features_tensor.shape[1] == 20 * 2 + 7 * 2)
         assert(cts_targets_tensor.shape[1] == 6)
-        assert(char_button_targets_tensor.shape[1] == 5)
+        # assert(char_button_targets_tensor.shape[1] == 5)
 
 
         return features_tensor.float(), cts_targets_tensor.float(),  char_button_targets_tensor.float()
