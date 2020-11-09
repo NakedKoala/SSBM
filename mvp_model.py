@@ -10,9 +10,9 @@ import pdb
 
 class SSBM_MVP(nn.Module):
      action_state_dim = 383
-     input_dim = 66
+     input_dim = 62
      cts_out_dim = 6
-     logit_out_dim = 7
+     logit_out_dim = 5
      num_embedding_features = 4
      def __init__(self, embedding_dim, hidden_sizes = [1024, 512, 256]):
             super().__init__()
@@ -29,7 +29,8 @@ class SSBM_MVP(nn.Module):
             self.logits_out = Linear(in_features=hidden_sizes[-1] , out_features=SSBM_MVP.logit_out_dim)
             
      def forward(self, x):
-         
+       #   import pdb 
+       #   pdb.set_trace()
          batch_size = x.shape[0]
          embed_idx, regular_feat = x[:,0:SSBM_MVP.num_embedding_features].long(), x[:,SSBM_MVP.num_embedding_features:]
          embed_feat = self.action_state_embedding(embed_idx.reshape(-1)).reshape(batch_size,-1)

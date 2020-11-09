@@ -59,7 +59,11 @@ def proc_button_press(buttons_values_np, button_press_indicator_dim):
             selected_bits = bits[0:4] + bits[5:8]
             assert( len(selected_bits) == 7)
             #  Keep valid keys (most significant bit --> least significant bit)  [start, y, x, b, a, none, l, r, z, d_up, d_down, d_right, d_left]
-            return np.array(selected_bits)
+
+            # Combine X/Y and L/R
+            # "Y" "X" "B" "A" "L" "R" "Z"
+            result = [max(selected_bits[0], selected_bits[1])] + selected_bits[2:4] + [max(selected_bits[4], selected_bits[5])] + [selected_bits[6]]
+            return np.array(result)
 
 
         f = np.vectorize(convert_button_value_to_indicator_vector, otypes=[np.ndarray])
@@ -133,9 +137,9 @@ def proc_df(df, char_id, opponent_id, frame_delay, button_press_indicator_dim):
 
         features_tensor, cts_targets_tensor, char_bin_class_targets_tensor = torch.from_numpy(features_np), torch.from_numpy(cts_targets_np), torch.from_numpy(char_target_bin_cls_targets_np)
 
-        assert(features_tensor.shape[1] == 20 * 2 + 13 * 2)
+        assert(features_tensor.shape[1] == 20 * 2 + 11 * 2)
         assert(cts_targets_tensor.shape[1] == 6)
-        assert(char_bin_class_targets_tensor.shape[1] == 7)
+        assert(char_bin_class_targets_tensor.shape[1] == 5)
 
         return features_tensor.float(), cts_targets_tensor.float(),  char_bin_class_targets_tensor.float()
 
