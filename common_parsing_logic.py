@@ -30,9 +30,15 @@ def scale(tensor):
         0.13110503,  0.2549518 ,  0.24309364])
     return (tensor - mean) / std
       
-       
+def bitmap_to_number(bits):
+    power = 0
+    ans = 0 
+    while len(bits) > 0:
+        ans += bits.pop() * (2 ** power)
+        power += 1 
+    return ans 
 
-def proc_button_press(buttons_values_np, button_press_indicator_dim):
+def proc_button_press(buttons_values_np, button_press_indicator_dim, bitmap=False):
 
         def convert_button_value_to_indicator_vector(value):
 
@@ -62,14 +68,22 @@ def proc_button_press(buttons_values_np, button_press_indicator_dim):
 
             # Combine X/Y and L/R
             # "Y" "X" "B" "A" "L" "R" "Z"
-            result = [max(selected_bits[0], selected_bits[1])] + selected_bits[2:4] + [max(selected_bits[4], selected_bits[5])] + [selected_bits[6]]
-            return np.array(result)
+            bits = [max(selected_bits[0], selected_bits[1])] + selected_bits[2:4] + [max(selected_bits[4], selected_bits[5])] + [selected_bits[6]]
+            
+            if bitmap == True:
+                return np.array(bits)
+            else:
+                result =  bitmap_to_number(bits)
+                assert(result >= 0 and result <= 31)
+                return result
+
 
 
         f = np.vectorize(convert_button_value_to_indicator_vector, otypes=[np.ndarray])
         # try:
-        bin_cls_targets_np = np.stack(f(buttons_values_np), axis=0)
-        return bin_cls_targets_np
+        button_targets_np = np.stack(f(buttons_values_np), axis=0)
+    
+        return button_targets_np
 
 def proc_df(df, char_id, opponent_id, frame_delay, button_press_indicator_dim):
 
@@ -96,13 +110,6 @@ def proc_df(df, char_id, opponent_id, frame_delay, button_press_indicator_dim):
         opp_features_df, opp_cmd_df = df_opp[feat_cols].shift(frame_delay).fillna(0),\
                                       df_opp[target_cols].shift(frame_delay).fillna(0)
 
-        # import pdb
-        # pdb.set_trace()
-        features_np = np.concatenate([char_features_df.to_numpy()[:,0:2], opp_features_df.to_numpy()[:,0:2],\
-                                      char_features_df.to_numpy()[:,2:], opp_features_df.to_numpy()[:,2:]], axis=1)
-        # embedding_feature  reg_features  opp_target
-
-
         char_target_button_values_np = char_targets_df['pre_buttons'].to_numpy().reshape(-1)
         char_cmd_button_values_np = char_cmd_df['pre_buttons'].to_numpy().reshape(-1)
         opp_cmd_button_values_np = opp_cmd_df['pre_buttons'].to_numpy().reshape(-1)
@@ -111,12 +118,15 @@ def proc_df(df, char_id, opponent_id, frame_delay, button_press_indicator_dim):
         opp_cmd_df.drop('pre_buttons', axis=1, inplace=True)
 
 
-        # import pdb
-        # pdb.set_trace()
-        char_target_bin_cls_targets_np = proc_button_press(char_target_button_values_np, button_press_indicator_dim)
-        char_cmd_bin_cls_targets_np = proc_button_press(char_cmd_button_values_np, button_press_indicator_dim)
-        opp_cmd_bin_cls_targets_np = proc_button_press(opp_cmd_button_values_np, button_press_indicator_dim)
+        char_target_button_targets_np = proc_button_press(char_target_button_values_np, button_press_indicator_dim, bitmap=True)
+        char_cmd_button_targets_np = proc_button_press(char_cmd_button_values_np, button_press_indicator_dim)
+        opp_cmd_button_targets_np = proc_button_press(opp_cmd_button_values_np, button_press_indicator_dim)
 
+        
+        features_np = np.concatenate([char_features_df.to_numpy()[:,0:2], char_cmd_button_targets_np.reshape(-1, 1),  \
+                                      opp_features_df.to_numpy()[:,0:2],  opp_cmd_button_targets_np.reshape(-1, 1), \
+                                      char_features_df.to_numpy()[:,2:], opp_features_df.to_numpy()[:,2:]], axis=1)
+  
         # TODO model is currently fed in opponent controller inputs.
         # This might be regarded as cheating from human POV, so we should
         # consider removing opponent controller input from features in the future.
@@ -130,18 +140,19 @@ def proc_df(df, char_id, opponent_id, frame_delay, button_press_indicator_dim):
         # import pdb 
         # pdb.set_trace()
 
-        features_np = np.concatenate([features_np, char_cmd_bin_cls_targets_np, opp_cmd_bin_cls_targets_np], axis=1)
+        # features_np = np.concatenate([features_np, char_cmd_button_targets_np, opp_cmd_button_targets_np], axis=1)
 
         cts_targets_np = char_targets_df.to_numpy()
 
 
-        features_tensor, cts_targets_tensor, char_bin_class_targets_tensor = torch.from_numpy(features_np), torch.from_numpy(cts_targets_np), torch.from_numpy(char_target_bin_cls_targets_np)
+        features_tensor, cts_targets_tensor, char_button_targets_tensor = torch.from_numpy(features_np), torch.from_numpy(cts_targets_np), torch.from_numpy(char_target_button_targets_np)
 
-        assert(features_tensor.shape[1] == 20 * 2 + 11 * 2)
+        assert(features_tensor.shape[1] == 20 * 2 + 7 * 2)
         assert(cts_targets_tensor.shape[1] == 6)
-        assert(char_bin_class_targets_tensor.shape[1] == 5)
+        assert(char_button_targets_tensor.shape[1] == 5)
 
-        return features_tensor.float(), cts_targets_tensor.float(),  char_bin_class_targets_tensor.float()
+
+        return features_tensor.float(), cts_targets_tensor.float(),  char_button_targets_tensor.float()
 
 def _fix_align_queue(align_queue, window_size, tensor_shape):
     for _ in range(window_size - len(align_queue)):

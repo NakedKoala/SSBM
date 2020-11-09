@@ -55,13 +55,11 @@ def report_button_cls_metrics(preds, targets, thres=0.5):
     # pdb.set_trace()
 
     button_idx_to_name = {
-        0: "Y",
-        1: "X", 
-        2: "B",
-        3: "A",
-        4: "L", 
-        5: "R",
-        6: "Z"
+        0: "X/Y",
+        1: "B",
+        2: "A",
+        3: "L/R", 
+        4: "Z"
     }
     preds = preds > thres 
    

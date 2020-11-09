@@ -24,12 +24,12 @@ from tqdm import tqdm
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 # # SSBMDataset has a window_size argument for RNNs
 trn_ds = SSBMDataset(src_dir="./", char_id=2, opponent_id=1, window_size=1, device=device)
-trn_dl = DataLoader(trn_ds, batch_size=4, shuffle=True, num_workers=0)
+trn_dl = DataLoader(trn_ds, batch_size=256, shuffle=True, num_workers=0)
 
 # model = SSBM_LSTM(100, hidden_size=256, num_layers=2, bidirectional=True)
-model = SSBM_MVP(100)
+model = SSBM_MVP(100, 50)
 # for batch in trn_dl:
-#     feat, cts_targets, bin_cls_targets = batch
+#     feat, cts_targets, button_targets = batch
 #     cts_o, logits_o = model(feat)
 #     import pdb 
 #     pdb.set_trace()
