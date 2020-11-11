@@ -5,6 +5,8 @@ from slp_parser import SLPParser
 from dataset import SSBMDataset
 import pandas as pd
 import torch
+from torch.distributions.categorical import Categorical
+import numpy as np
 
 # convert a single frame to an input tensor
 def convert_frame_to_input_tensor(frame, char_id, opponent_id):
@@ -31,8 +33,24 @@ class FrameContext(object):
         frame_features = convert_frame_to_input_tensor(frame, char_id, opponent_id)
         return align(self.align_queue, self.window_size, frame_features[0])
 
-def convert_output_tensor_to_command(cts_targets, bin_cls_targets, button_press_thres = [0.5] * 7):
-    probs = torch.sigmoid(bin_cls_targets)
+def button_combination_idx_to_bitmap(idx):
+    result = []
+
+    while idx > 0:
+        result.append(idx % 2)
+        idx //= 2
+    result = list(reversed(result))
+    result = [0] * (5 - len(result)) + result
+    return result
+
+def convert_output_tensor_to_command(cts_targets, button_targets, sample_top_n=3):
+
+    button_targets = button_targets.reshape(-1)
+    dist = Categorical(logits = button_targets)
+    button_combination_idx = dist.sample().item()
+    # print(button_combination_idx)
+    bitmap = button_combination_idx_to_bitmap(button_combination_idx)
+
     #TODO: Nathan please convert this dict to controller state
     # I can't make sure this run smoothly without running together with the infra part
     state = {
@@ -41,13 +59,13 @@ def convert_output_tensor_to_command(cts_targets, bin_cls_targets, button_press_
         "l_shoulder": cts_targets[0,4].item(),
         "r_shoulder": cts_targets[0,5].item(),
         "button": {
-            "Y": probs[0,0].item() > button_press_thres[0],
-            "X": probs[0,1].item() > button_press_thres[1],
-            "B": probs[0,2].item() > button_press_thres[2],
-            "A": probs[0,3].item() > button_press_thres[3],
-            "L": probs[0,4].item() > button_press_thres[4],
-            "R": probs[0,5].item() > button_press_thres[5],
-            "Z": probs[0,6].item() > button_press_thres[6]
+            "Y": 0,
+            "X": bitmap[0],
+            "B": bitmap[1],
+            "A": bitmap[2],
+            "L": 0,
+            "R": bitmap[3],
+            "Z": bitmap[4]
          }
     }
 

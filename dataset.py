@@ -38,8 +38,7 @@ class SSBMDataset(Dataset):
             try:
                 df = pd.read_csv(csv_path, index_col="frame_index")
                 features, cts_targets, bin_cls_targets = proc_df(df, char_id, opponent_id, SSBMDataset.frame_delay, SSBMDataset.button_press_indicator_dim)
-                features[:,4:52] = scale(features[:,4:52])
-
+               
                 self.features_per_game.append(features)
                 # prefix sum on frame_splits for indexing
                 self.frame_splits.append(self.frame_splits[-1] + len(features))
@@ -52,6 +51,8 @@ class SSBMDataset(Dataset):
 
         self.cts_targets = torch.cat(self.cts_targets, dim=0)
         self.bin_cls_targets = torch.cat(self.bin_cls_targets, dim=0)
+        # import pdb 
+        # pdb.set_trace()
 
         # move per-game features to device
         for features in self.features_per_game:
@@ -87,15 +88,21 @@ class SSBMDataset(Dataset):
         first_frame = max(0, frame_idx - self.window_size + 1)
         frame_features = self.features_per_game[game_idx][first_frame:frame_idx + 1]
         # at least one frame must exist
-        assert(frame_features.shape[0] > 0)
-        if frame_features.shape[0] < self.window_size:
-            # prepend with zeroes
-            features_list = []
-            for _ in range(self.window_size - frame_features.shape[0]):
-                # add zero tensor of size (1,) + frame_features[0].shape
-                features_list.append(torch.unsqueeze(torch.zeros_like(frame_features[0]), 0))
-            features_list.append(frame_features)
-            frame_features = torch.cat(features_list)
+        if self.window_size > 1:
+            assert(frame_features.shape[0] > 0)
+            if frame_features.shape[0] < self.window_size:
+                # prepend with zeroes
+                features_list = []
+                for _ in range(self.window_size - frame_features.shape[0]):
+                    # add zero tensor of size (1,) + frame_features[0].shape
+                    features_list.append(torch.unsqueeze(torch.zeros_like(frame_features[0]), 0))
+                features_list.append(frame_features)
+                frame_features = torch.cat(features_list)
+        
+            return frame_features, self.cts_targets[idx], self.bin_cls_targets[idx]
+        else:
+            # import pdb 
+            # pdb.set_trace()
+            return frame_features.squeeze(0), self.cts_targets[idx], self.bin_cls_targets[idx]
 
-        return frame_features, self.cts_targets[idx], self.bin_cls_targets[idx]
 
