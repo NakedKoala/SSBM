@@ -44,8 +44,9 @@ class SSBM_LSTM(nn.Module):
          seq_len = x.shape[1]
 
          embed_indices, regular_feat = x[:,:,0:SSBM_LSTM.num_embedding_features].long(), x[:,:,SSBM_LSTM.num_embedding_features:]
-         action_embed_idx = embed_indices[:,:,:4]
-         button_combination_idx = embed_indices[:,:,4:]
+         action_embed_idx = torch.cat([embed_indices[:,:,0:2], embed_indices[:,:,3:5]] ,dim=1)
+    
+         button_combination_idx = torch.cat([embed_indices[:,:,2].reshape(batch_size, seq_len,1),embed_indices[:,:,5].reshape(batch_size, seq_len, 1)], dim=1)
         #  import pdb 
         #  pdb.set_trace()
          action_embed_feat = self.action_state_embedding(action_embed_idx.reshape(-1)).reshape(batch_size, seq_len, -1)

@@ -148,6 +148,7 @@ def proc_df(df, char_id, opponent_id, frame_delay, button_press_indicator_dim, d
 
 
         features_tensor, cts_targets_tensor, char_button_targets_tensor = torch.from_numpy(features_np), torch.from_numpy(cts_targets_np), torch.from_numpy(char_target_button_targets_np)
+        features_tensor[:,6:] = scale(features_tensor[:,6:])
 
         assert(features_tensor.shape[1] == 20 * 2 + 7 * 2)
         assert(cts_targets_tensor.shape[1] == 6)
