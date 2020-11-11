@@ -38,7 +38,7 @@ class SSBMDataset(Dataset):
             try:
                 df = pd.read_csv(csv_path, index_col="frame_index")
                 features, cts_targets, bin_cls_targets = proc_df(df, char_id, opponent_id, SSBMDataset.frame_delay, SSBMDataset.button_press_indicator_dim)
-                features[:,4:52] = scale(features[:,4:52])
+                features[:,6:] = scale(features[:,6:])
 
                 self.features_per_game.append(features)
                 # prefix sum on frame_splits for indexing

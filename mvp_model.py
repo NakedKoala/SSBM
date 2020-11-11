@@ -36,11 +36,15 @@ class SSBM_MVP(nn.Module):
      def forward(self, x):
        #   import pdb 
        #   pdb.set_trace()
+       #   import pdb 
+       #   pdb.set_trace()
          batch_size = x.shape[0]
          embed_indices, regular_feat = x[:,0:SSBM_MVP.num_embedding_features].long(), x[:,SSBM_MVP.num_embedding_features:]
-         action_embed_idx = embed_indices[:,:4]
-         button_combination_idx = embed_indices[:,4:]
-
+        
+         action_embed_idx = torch.cat([embed_indices[:,0:2], embed_indices[:,3:5]] ,dim=1)
+         button_combination_idx = torch.cat([embed_indices[:,2].reshape(-1, 1),embed_indices[:,5].reshape(-1,1)], dim=1)
+      
+        
          action_embed_feat = self.action_state_embedding(action_embed_idx.reshape(-1)).reshape(batch_size,-1)
          button_embed_feat = self.button_combination_embedding(button_combination_idx.reshape(-1)).reshape(batch_size,-1)
 

@@ -26,31 +26,34 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 trn_ds = SSBMDataset(src_dir="./", char_id=2, opponent_id=1, window_size=1, device=device)
 trn_dl = DataLoader(trn_ds, batch_size=256, shuffle=True, num_workers=0)
 
-# model = SSBM_LSTM(100, 50, hidden_size=256, num_layers=1, bidirectional=False)
+# # model = SSBM_LSTM(100, 50, hidden_size=256, num_layers=1, bidirectional=False)
 model = SSBM_MVP(100, 50)
-# for batch in trn_dl:
-#     feat, cts_targets, button_targets = batch
-#     cts_o, logits_o = model(feat)
-#     import pdb 
-#     pdb.set_trace()
+# # for batch in trn_dl:
+# #     feat, cts_targets, button_targets = batch
+# #     cts_o, logits_o = model(feat)
+# #     import pdb 
+# #     pdb.set_trace()
 
-# model = SSBM_MVP(100)
+# # model = SSBM_MVP(100)
 train(model, trn_dl, trn_dl, 20,  5000, device, [1] * 5)
 
 
 # Sample usage: infra adaptors
 
-"""
-model = SSBM_MVP(100)
-model.load_state_dict(torch.load('./weights/mvp_fit1_EP8_VL0078.pth',  map_location=lambda storage, loc: storage))
-model.eval()
+# model = SSBM_MVP(100, 50)
+# model.load_state_dict(torch.load('./weights/mvp_fit3_EP7_VL0353.pth',  map_location=lambda storage, loc: storage))
+# model.eval()
 
-slp_object = Game("./(YOTB) Fox vs Falcon (MN) [FD] Game_20200222T152806.slp")
-frame = slp_object.frames[100]
-feature_tensor = convert_frame_to_input_tensor(frame, char_id=2, opponent_id=1)
-cts_targets, bin_cls_targets = model(feature_tensor)
-print(convert_output_tensor_to_command(cts_targets, bin_cls_targets))
-"""
+# slp_object = Game("./(YOTB) Fox vs Falcon (MN) [FD] Game_20200222T152806.slp")
+# frame = slp_object.frames[100]
+# feature_tensor = convert_frame_to_input_tensor(frame, char_id=2, opponent_id=1)
+
+# import pdb 
+# pdb.set_trace()
+
+# cts_targets, button_targets = model(feature_tensor)
+# print(convert_output_tensor_to_command(cts_targets, bin_cls_targets))
+
 
 # # aligned version
 # slp_object = Game("./(YOTB) Fox vs Falcon (MN) [FD] Game_20200222T152806.slp")

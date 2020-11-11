@@ -124,7 +124,7 @@ def proc_df(df, char_id, opponent_id, frame_delay, button_press_indicator_dim, d
         char_cmd_button_targets_np = proc_button_press(char_cmd_button_values_np, button_press_indicator_dim)
         opp_cmd_button_targets_np = proc_button_press(opp_cmd_button_values_np, button_press_indicator_dim)
 
-        
+       
         features_np = np.concatenate([char_features_df.to_numpy()[:,0:2], char_cmd_button_targets_np.reshape(-1, 1),  \
                                       opp_features_df.to_numpy()[:,0:2],  opp_cmd_button_targets_np.reshape(-1, 1), \
                                       char_features_df.to_numpy()[:,2:], opp_features_df.to_numpy()[:,2:]], axis=1)
@@ -153,7 +153,8 @@ def proc_df(df, char_id, opponent_id, frame_delay, button_press_indicator_dim, d
         assert(cts_targets_tensor.shape[1] == 6)
         # assert(char_button_targets_tensor.shape[1] == 5)
 
-
+        # import pdb 
+        # pdb.set_trace()
         return features_tensor.float(), cts_targets_tensor.float(),  char_button_targets_tensor.float()
 
 def _fix_align_queue(align_queue, window_size, tensor_shape):
