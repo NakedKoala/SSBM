@@ -29,9 +29,12 @@ def eval(model, val_dl, device, bce_crit):
     mse_crit = MSELoss(reduction='mean')
     model.eval()
     
-    for batch in tqdm(val_dl):
+    for batch in tqdm(val_dl, position=0, leave=True):
         num_batch += 1
         features, cts_targets, bin_cls_targets = batch
+        features = features.to(device)
+        cts_targets = cts_targets.to(device)
+        bin_cls_targets = bin_cls_targets.to(device)
         with torch.no_grad():
             cts_o, logits_o = model(features)
             mse_loss = mse_crit(cts_o, cts_targets)
@@ -83,10 +86,13 @@ def train(model, trn_dl, val_dl, epoch, print_out_freq, device, pos_weigts):
         button_targets = []
         button_preds = []
         model.train()
-        for batch in tqdm(trn_dl):
+        for batch in tqdm(trn_dl, position=0, leave=True):
             iter_num += 1
             optim.zero_grad()
             features, cts_targets, bin_cls_targets = batch
+            features = features.to(device)
+            cts_targets = cts_targets.to(device)
+            bin_cls_targets = bin_cls_targets.to(device)
             # import pdb 
             # pdb.set_trace()
             cts_o, logits_o = model(features)
