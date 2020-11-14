@@ -6,28 +6,27 @@ import torch
 from sklearn.preprocessing import StandardScaler
 
 def scale(tensor):
-    mean = torch.tensor([1.41423043e+00,  7.85902318e+00,  1.41610300e+00,  7.80339904e+00,
-        5.54843011e+01,  1.20621781e+01,  8.08904896e-01,  5.88113544e+01,
-        1.83485191e+01,  5.59438437e+00,  6.52009154e-01,  5.29972526e-01,
-        5.54842529e+01,  5.03226905e-01,  4.96555996e-01,  5.03235357e-01,
-        4.96547543e-01,  2.71878764e+00,  1.67740513e+00,  3.57006903e+00,
-        1.67848391e+00,  3.52045915e+00,  4.57292101e+01,  1.09459958e+01,
-        9.26322530e-01,  5.92744284e+01,  1.58369980e+01,  6.77617745e+00,
-        4.64083937e-01,  4.64926234e-01,  4.57292101e+01,  5.07767453e-01,
-        4.92015448e-01,  5.07770270e-01,  4.92012630e-01,  2.71254100e+00,
-        4.33544745e-03, -5.96091991e-02, -1.71527698e-03, -1.15610866e-02,
-        1.12961590e-01,  8.38983897e-02, -9.18879334e-04, -3.93047363e-02,
-       -2.32658232e-03,  2.02196862e-03,  8.83636491e-02,  7.81077922e-02])
-    std = torch.tensor([ 63.15214909, 31.85448842, 63.20340685, 31.88907913, 45.4699356 ,
-       12.17418325,  0.47170615,  3.79583704, 17.29841457, 17.53603757,
-        1.09023949,  0.49910085, 45.46992937,  0.49998957,  0.49998814,
-        0.49998951,  0.4999881 ,  1.07013528, 67.62576071, 25.21796792,
-       67.71633154, 25.23324746, 38.06941933, 11.66731482,  0.85936804,
-        2.81122129, 12.55309953, 23.5396452 ,  0.96226853,  0.49876832,
-       38.06941933,  0.49993966,  0.49993625,  0.49993964,  0.4999362 ,
-        1.07326573,  0.65573621,  0.37714628,  0.16054365,  0.15059148,
-        0.28983791,  0.25826303,  0.60554965,  0.44761662,  0.11764879,
-        0.13110503,  0.2549518 ,  0.24309364])
+   
+    mean = torch.tensor([ 1.41423043e+00,  7.85902318e+00,  1.41610300e+00,  7.80339904e+00,
+        5.54843011e+01,  1.20621781e+01,  5.88113544e+01,  5.59438437e+00,
+        5.29972526e-01,  5.54842529e+01,  5.03226905e-01,  4.96555996e-01,
+        5.03235357e-01,  4.96547543e-01,  2.71878764e+00,  1.67740513e+00,
+        3.57006903e+00,  1.67848391e+00,  3.52045915e+00,  4.57292101e+01,
+        1.09459958e+01,  5.92744284e+01,  6.77617745e+00,  4.64926234e-01,
+        4.57292101e+01,  5.07767453e-01,  4.92015448e-01,  5.07770270e-01,
+        4.92012630e-01,  2.71254100e+00,  4.33544745e-03, -5.96091991e-02,
+       -1.71527698e-03, -1.15610866e-02,  1.12961590e-01,  8.38983897e-02,
+       -9.18879334e-04, -3.93047363e-02, -2.32658232e-03,  2.02196862e-03,
+        8.83636491e-02,  7.81077922e-02])
+    std = torch.tensor([63.15214909, 31.85448842, 63.20340685, 31.88907913, 45.4699356 ,
+       12.17418325,  3.79583704, 17.53603757,  0.49910085, 45.46992937,
+        0.49998957,  0.49998814,  0.49998951,  0.4999881 ,  1.07013528,
+       67.62576071, 25.21796792, 67.71633154, 25.23324746, 38.06941933,
+       11.66731482,  2.81122129, 23.5396452 ,  0.49876832, 38.06941933,
+        0.49993966,  0.49993625,  0.49993964,  0.4999362 ,  1.07326573,
+        0.65573621,  0.37714628,  0.16054365,  0.15059148,  0.28983791,
+        0.25826303,  0.60554965,  0.44761662,  0.11764879,  0.13110503,
+        0.2549518 ,  0.24309364])
     return (tensor - mean) / std
       
 def bitmap_to_number(bits):
@@ -89,8 +88,8 @@ def proc_df(df, char_id, opponent_id, frame_delay, button_press_indicator_dim, d
 
 
         feat_cols = ['pre_state',  'post_state','pre_position_x', 'pre_position_y',  'post_position_x', 'post_position_y', \
-                'post_damage', 'post_state_age', 'post_combo_count', 'post_shield', 'post_last_attack_landed', \
-                'post_hit_stun', 'post_last_hit_by', 'post_airborne', 'pre_damage',  'post_direction_1', 'post_direction_-1', \
+                'post_damage', 'post_state_age', 'post_shield', \
+                'post_hit_stun', 'post_airborne', 'pre_damage',  'post_direction_1', 'post_direction_-1', \
                 'pre_direction_1', 'pre_direction_-1', 'post_stocks']
         target_cols = ['pre_joystick_x', 'pre_joystick_y',  'pre_cstick_x', 'pre_cstick_y', \
                        'pre_triggers_x', 'pre_triggers_y', 'pre_buttons']
@@ -149,8 +148,9 @@ def proc_df(df, char_id, opponent_id, frame_delay, button_press_indicator_dim, d
 
         features_tensor, cts_targets_tensor, char_button_targets_tensor = torch.from_numpy(features_np), torch.from_numpy(cts_targets_np), torch.from_numpy(char_target_button_targets_np)
         features_tensor[:,6:] = scale(features_tensor[:,6:])
-
-        assert(features_tensor.shape[1] == 20 * 2 + 7 * 2)
+        # import pdb 
+        # pdb.set_trace()
+        assert(features_tensor.shape[1] == 17 * 2 + 7 * 2)
         assert(cts_targets_tensor.shape[1] == 6)
         # assert(char_button_targets_tensor.shape[1] == 5)
 
@@ -191,8 +191,8 @@ def initialize_dataframe_dict(pre_frame_attributes, post_frame_attributes, split
 def data_pre_proc_mvp(df):
 
     df['post_ground'].fillna(value = 0.0, inplace=True)
-    df['post_last_hit_by'].fillna(value = 0.0, inplace=True)
-    df['post_last_attack_landed'].fillna(value = 0.0, inplace=True)
+    # df['post_last_hit_by'].fillna(value = 0.0, inplace=True)
+    # df['post_last_attack_landed'].fillna(value = 0.0, inplace=True)
     df['pre_damage'] = df['pre_damage'].apply(lambda x: x[0])
     ## TODO: all dev data set have airborne = None. Find out why. Version ?
     df['post_airborne'] = df['post_airborne'].astype(int)

@@ -7,10 +7,23 @@ import traceback
 import concurrent.futures
 from common_parsing_logic import * 
 
+'''
+Remove set:
+{
+"random_seed"
+"raw_analog_x"
+"l_cancel"
+"combo_count"
+"flags"
+"last_hit_by"
+"last_attack_landed"
+}
+7
+'''
 class SLPParser:
-    pre_frame_attributes = ["state", "position", "direction", "joystick", "cstick", "triggers", "buttons", "random_seed", "raw_analog_x", "damage"]
-    post_frame_attributes = ["character", "state", "state_age", "position", "direction", "damage", "shield", "stocks", "last_attack_landed", \
-                                      "last_hit_by", "combo_count", "flags", "hit_stun", "airborne", "ground", "jumps", "l_cancel"]
+    pre_frame_attributes = ["state", "position", "direction", "joystick", "cstick", "triggers", "buttons", "damage"]
+    post_frame_attributes = ["character", "state", "state_age", "position", "direction", "damage", "shield", "stocks",\
+                             "hit_stun", "airborne", "ground", "jumps"]
     split_coord_attributes = ["position", "joystick", "cstick", "triggers"]
     def __init__(self, src_dir, dest_dir):
 

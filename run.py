@@ -22,10 +22,10 @@ import numpy as np
 
 # Sample usage: training
 
-# device = 'cuda' if torch.cuda.is_available() else 'cpu'
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 # # # SSBMDataset has a window_size argument for RNNs
-# trn_ds = SSBMDataset(src_dir="./", char_id=2, opponent_id=1, window_size=10, device=device)
-# trn_dl = DataLoader(trn_ds, batch_size=1, shuffle=True, num_workers=0)
+trn_ds = SSBMDataset(src_dir="./", char_id=2, opponent_id=1, window_size=1, device=device)
+trn_dl = DataLoader(trn_ds, batch_size=256, shuffle=True, num_workers=0)
 
 # model = SSBM_LSTM(100, 50, hidden_size=4, num_layers=1, bidirectional=False)
 # # model = SSBM_MVP(100, 50)
@@ -35,33 +35,39 @@ import numpy as np
 # # #     import pdb 
 # # #     pdb.set_trace()
 
-# # # model = SSBM_MVP(100)
-# train(model, trn_dl, trn_dl, 20,  5000, device, [1] * 5)
+model = SSBM_MVP(100, 50)
+train(model, trn_dl, trn_dl, 20,  5000, device, [1] * 5)
 
 
 # Sample usage: infra adaptors
 
-model = SSBM_MVP(100, 50)
-model.load_state_dict(torch.load('./weights/mvp_fit3_EP7_VL0353.pth',  map_location=lambda storage, loc: storage))
-model.eval()
+# model = SSBM_MVP(100, 50)
+# model.load_state_dict(torch.load('./weights/mvp_fit3_EP7_VL0353.pth',  map_location=lambda storage, loc: storage))
+# model.eval()
 
-slp_object = Game("./(YOTB) Fox vs Falcon (MN) [FD] Game_20200222T152806.slp")
+# slp_object = Game("./(YOTB) Fox vs Falcon (MN) [FD] Game_20200222T152806.slp")
 
-latency = []
-cmd_lst = []
-for frame in tqdm(slp_object.frames):
-    start = time.time()
-    feature_tensor = convert_frame_to_input_tensor(frame, char_id=2, opponent_id=1)
-    cts_targets, button_targets = model(feature_tensor)
-    cmd_lst.append(convert_output_tensor_to_command(cts_targets, button_targets))
-    end = time.time()
-    latency.append(end - start)
-    # print(cmd)
+# latency = []
+# model_latency = []
+# cmd_lst = []
+# for frame in tqdm(slp_object.frames):
+#     start = time.time()
+#     feature_tensor = convert_frame_to_input_tensor(frame, char_id=2, opponent_id=1)
+#     model_start = time.time()
+#     cts_targets, button_targets = model(feature_tensor)
+#     model_end = time.time()
+#     cmd_lst.append(convert_output_tensor_to_command(cts_targets, button_targets))
+#     end = time.time()
+#     latency.append(end - start)
+#     model_latency.append(model_end - model_start)
+#     # print(cmd)
 
-# print(latency)
-print(np.mean(latency))
-import pdb 
-pdb.set_trace()
+# # print(latency)
+
+# print(f'total mean {np.mean(latency)} max {np.max(latency)}')
+# print(f'model mean {np.mean(model_latency)} max {np.max(model_latency)}')
+# import pdb 
+# pdb.set_trace()
 
 
 
