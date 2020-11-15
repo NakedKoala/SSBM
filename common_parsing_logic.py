@@ -200,9 +200,6 @@ def data_pre_proc_mvp(df):
     df['pre_state'] = df['pre_state'].astype(int)
     df['post_state'] = df['post_state'].astype(int)
 
-    if df['pre_direction'][0] != 1:
-        import pdb; pdb.set_trace()
-
     categorical_cols = ['pre_direction', 'post_direction']
     # import pdb
     # pdb.set_trace()
