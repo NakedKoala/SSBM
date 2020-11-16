@@ -10,6 +10,7 @@ from tqdm import tqdm
 import traceback
 from common_parsing_logic import proc_df, align, scale
 
+
 def find_le_idx(a, x):
     'Find index of rightmost value less than or equal to x'
     i = bisect.bisect_right(a, x)
@@ -33,12 +34,13 @@ class SSBMDataset(Dataset):
         self.bin_cls_targets = []
         self.window_size = window_size
         self.device = device
+        
 
         for csv_path in tqdm(self.csv_files, position=0, leave=True):
             try:
                 df = pd.read_csv(csv_path, index_col="frame_index")
                 features, cts_targets, bin_cls_targets = proc_df(df, char_id, opponent_id, SSBMDataset.frame_delay, SSBMDataset.button_press_indicator_dim)
-               
+                
                 self.features_per_game.append(features)
                 # prefix sum on frame_splits for indexing
                 self.frame_splits.append(self.frame_splits[-1] + len(features))
@@ -48,7 +50,7 @@ class SSBMDataset(Dataset):
             except:
                 print(f'failed to load {csv_path}')
                 traceback.print_exc()
-
+       
         self.cts_targets = torch.cat(self.cts_targets, dim=0)
         self.bin_cls_targets = torch.cat(self.bin_cls_targets, dim=0)
         # import pdb 
