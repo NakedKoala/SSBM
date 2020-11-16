@@ -11,7 +11,7 @@ import pdb
 class SSBM_LSTM(nn.Module):
      action_state_dim = 383
      button_combination_dim = 32
-     input_dim = 54
+     input_dim = 48
      cts_out_dim = 6
      logit_out_dim = 32
      num_embedding_features = 6

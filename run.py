@@ -47,27 +47,17 @@ model.eval()
 
 slp_object = Game("./(YOTB) Fox vs Falcon (MN) [FD] Game_20200222T152806.slp")
 
-# latency = []
-# model_latency = []
+
 cmd_lst = []
 for frame in tqdm(slp_object.frames):
-#     start = time.time()
+
     feature_tensor = convert_frame_to_input_tensor(frame, char_id=2, opponent_id=1)
-#     model_start = time.time()
+
     cts_targets, button_targets = model(feature_tensor)
-#     model_end = time.time()
+
     cmd_lst.append(convert_output_tensor_to_command(cts_targets, button_targets))
-#     end = time.time()
-#     latency.append(end - start)
-#     model_latency.append(model_end - model_start)
-#     # print(cmd)
 
-# # print(latency)
 
-# print(f'total mean {np.mean(latency)} max {np.max(latency)}')
-# print(f'model mean {np.mean(model_latency)} max {np.max(model_latency)}')
-# import pdb 
-# pdb.set_trace()
 
 
 
