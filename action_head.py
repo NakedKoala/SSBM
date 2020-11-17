@@ -62,7 +62,9 @@ class ActionHead(nn.Module):
     MAX = 1 # choose action based on maximum logit
     RANDOM = 2 # choose action randomly at uniform
     # behavior for use in RL experience generation only - not supervised/RL training!
-    # use default for normal RL experience generation, max for (when?), random occassionally
+    # use default for normal RL experience generation
+    # use max for evaluating entire model output for evaluation
+    # use random in RL experience generation occassionally
     # forced_action required for supervised learning and for RL learning
     def forward(self, x, forced_action=None, behavior=2):
         if forced_action is not None:

@@ -1,6 +1,7 @@
 import torch
 from torch.nn.functional import softmax, log_softmax, one_hot, cross_entropy
 from torch.optim import Adam
+from torch.optim.lr_scheduler import LambdaLR
 from tqdm import tqdm
 import numpy as np
 import controller_indices as c_idx
@@ -151,7 +152,17 @@ def eval(model, val_dl, eval_behavior, device):
 def train(model, trn_dl, val_dl, epoch, eval_behavior, print_out_freq, device):
     model.to(device)
 
-    optim = Adam(model.parameters(), lr=0.0001, weight_decay=1e-5)
+    def lr_schedule(epoch):
+        if epoch < 3:
+            return 1
+        elif epoch < 6:
+            return 0.1
+        elif epoch < 9:
+            return 0.01
+        return 0.001
+
+    optim = Adam(model.parameters(), lr=0.01, weight_decay=1e-5)
+    scheduler = LambdaLR(optim, lr_lambda=[lr_schedule])
 
     for i in range(epoch):
         iter_num = 0
@@ -187,3 +198,4 @@ def train(model, trn_dl, val_dl, epoch, eval_behavior, print_out_freq, device):
         print(f'end of {i}th epoch trn_loss: {epoch_loss / iter_num}')
         print(f'Eval epoch {i}')
         eval(model, val_dl, eval_behavior, device)
+        scheduler.step()
