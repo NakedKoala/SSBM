@@ -3,6 +3,7 @@
 from common_parsing_logic import proc_frame, initialize_dataframe_dict, proc_df, data_pre_proc_mvp, align
 from slp_parser import SLPParser
 from dataset import SSBMDataset
+import controller_indices as c_idx
 import pandas as pd
 import torch
 from torch.distributions.categorical import Categorical
@@ -11,7 +12,7 @@ import melee
 
 # convert a single frame to an input tensor
 def convert_frame_to_input_tensor(frame, char_id, opponent_id):
- 
+
     dataframe_dict = initialize_dataframe_dict(SLPParser.pre_frame_attributes, SLPParser.post_frame_attributes, SLPParser.split_coord_attributes)
     proc_frame(dataframe_dict, frame, SLPParser.pre_frame_attributes, SLPParser.post_frame_attributes, SLPParser.split_coord_attributes)
     df = pd.DataFrame.from_dict(dataframe_dict)
@@ -70,3 +71,26 @@ def convert_output_tensor_to_command(cts_targets, button_targets, sample_top_n=3
 
 
     return state
+
+# takes in tuple of 8 index integers:
+# buttons, stick coarse, stick fine, stick magn, cstick coarse, cstick fine, cstick magn, trigger
+def convert_action_state_to_command(idx_states):
+    buttons = c_idx.button.to_buttons(idx_states[0])
+    stick_x, stick_y = c_idx.stick.to_stick(idx_state[1], idx_state[2], idx_state[3])
+    cstick_x, cstick_y = c_idx.stick.to_stick(idx_state[4], idx_state[5], idx_state[6])
+    trigger = c_idx.trigger.to_trigger(idx_state[7])
+    return {
+        'main_stick': (stick_x, stick_y),
+        'c_stick': (cstick_x, cstick_y),
+        'l_shoulder': 0,
+        'r_shoulder': trigger,
+        'button': {
+            'Y': 0,
+            'X': buttons[0],
+            'B': buttons[1],
+            'A': buttons[2],
+            'L': 0,
+            'R': buttons[3],
+            'Z': buttons[4]
+        }
+    }

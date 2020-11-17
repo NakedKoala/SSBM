@@ -33,26 +33,29 @@ class SSBMDataset(Dataset):
         self.bin_cls_targets = []
         self.window_size = window_size
         self.device = device
-        
+
 
         for csv_path in tqdm(self.csv_files, position=0, leave=True):
             try:
                 df = pd.read_csv(csv_path, index_col="frame_index")
                 features, cts_targets, bin_cls_targets = proc_df(df, char_id, opponent_id, SSBMDataset.frame_delay, SSBMDataset.button_press_indicator_dim)
-                
+
                 self.features_per_game.append(features)
                 # prefix sum on frame_splits for indexing
                 self.frame_splits.append(self.frame_splits[-1] + len(features))
 
                 self.cts_targets.append(cts_targets)
                 self.bin_cls_targets.append(bin_cls_targets)
+
+                if ds_type == 'dev' and self.frame_splits[-1] > 1000:
+                    break
             except:
                 print(f'failed to load {csv_path}')
                 traceback.print_exc()
-       
+
         self.cts_targets = torch.cat(self.cts_targets, dim=0)
         self.bin_cls_targets = torch.cat(self.bin_cls_targets, dim=0)
-        # import pdb 
+        # import pdb
         # pdb.set_trace()
 
         # move per-game features to device
@@ -99,10 +102,10 @@ class SSBMDataset(Dataset):
                     features_list.append(torch.unsqueeze(torch.zeros_like(frame_features[0]), 0))
                 features_list.append(frame_features)
                 frame_features = torch.cat(features_list)
-        
+
             return frame_features, self.cts_targets[idx], self.bin_cls_targets[idx]
         else:
-            # import pdb 
+            # import pdb
             # pdb.set_trace()
             return frame_features.squeeze(0), self.cts_targets[idx], self.bin_cls_targets[idx]
 
