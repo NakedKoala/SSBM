@@ -74,11 +74,11 @@ def convert_output_tensor_to_command(cts_targets, button_targets, sample_top_n=3
 
 # takes in tuple of 8 index integers:
 # buttons, stick coarse, stick fine, stick magn, cstick coarse, cstick fine, cstick magn, trigger
-def convert_action_state_to_command(idx_states):
-    buttons = c_idx.button.to_buttons(idx_states[0])
-    stick_x, stick_y = c_idx.stick.to_stick(idx_state[1], idx_state[2], idx_state[3])
-    cstick_x, cstick_y = c_idx.stick.to_stick(idx_state[4], idx_state[5], idx_state[6])
-    trigger = c_idx.trigger.to_trigger(idx_state[7])
+def convert_action_state_to_command(idx_state):
+    buttons = c_idx.button.to_buttons(idx_state[0].item())
+    stick_x, stick_y = c_idx.stick.to_stick(idx_state[1].item(), idx_state[2].item(), idx_state[3].item())
+    cstick_x, cstick_y = c_idx.stick.to_stick(idx_state[4].item(), idx_state[5].item(), idx_state[6].item())
+    trigger = c_idx.trigger.to_trigger(idx_state[7].item())
     return {
         'main_stick': (stick_x, stick_y),
         'c_stick': (cstick_x, cstick_y),
