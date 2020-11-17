@@ -21,10 +21,9 @@ def find_le_idx(a, x):
 class SSBMDataset(Dataset):
 
 
-
     val_ratio = 0.2
     button_press_indicator_dim = 12
-    frame_delay = 2
+    frame_delay = 15
     def __init__(self, src_dir, char_id, opponent_id, device, window_size=0, ds_type=None):
         torch.manual_seed(0)
         self.csv_files = [ os.path.join(src_dir, fname) for fname in os.listdir(src_dir) if '.csv' in fname]

@@ -146,8 +146,8 @@ def train(model, trn_dl, val_dl, epoch, print_out_freq, device, pos_weigts):
         eval_button_preds(button_preds, button_labels, None)
         print(f'Eval epoch {i}')
         eval(model, val_dl, device, state)
-        import pdb 
-        pdb.set_trace()
+        # import pdb 
+        # pdb.set_trace()
     return state
                 
         
