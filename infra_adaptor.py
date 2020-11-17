@@ -9,7 +9,8 @@ import torch
 from torch.distributions.categorical import Categorical
 import numpy as np
 import melee
-
+import warnings
+warnings.filterwarnings('ignore')
 # convert a single frame to an input tensor
 def convert_frame_to_input_tensor(frame, char_id, opponent_id):
 
