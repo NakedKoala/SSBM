@@ -7,6 +7,7 @@ import pandas as pd
 import torch
 from torch.distributions.categorical import Categorical
 import numpy as np
+import melee
 
 # convert a single frame to an input tensor
 def convert_frame_to_input_tensor(frame, char_id, opponent_id):
@@ -51,21 +52,19 @@ def convert_output_tensor_to_command(cts_targets, button_targets, sample_top_n=3
     # print(button_combination_idx)
     bitmap = button_combination_idx_to_bitmap(button_combination_idx)
 
-    #TODO: Nathan please convert this dict to controller state
-    # I can't make sure this run smoothly without running together with the infra part
     state = {
         "main_stick": (cts_targets[0,0].item(), cts_targets[0,1].item()),
         "c_stick":  (cts_targets[0,2].item(), cts_targets[0,3].item()),
         "l_shoulder": cts_targets[0,4].item(),
         "r_shoulder": cts_targets[0,5].item(),
         "button": {
-            "Y": 0,
-            "X": bitmap[0],
-            "B": bitmap[1],
-            "A": bitmap[2],
-            "L": 0,
-            "R": bitmap[3],
-            "Z": bitmap[4]
+            melee.enums.Button.BUTTON_Y: 0,
+            melee.enums.Button.BUTTON_X: bitmap[0],
+            melee.enums.Button.BUTTON_B: bitmap[1],
+            melee.enums.Button.BUTTON_A: bitmap[2],
+            melee.enums.Button.BUTTON_L: 0,
+            melee.enums.Button.BUTTON_R: bitmap[3],
+            melee.enums.Button.BUTTON_Z: bitmap[4]
          }
     }
 
