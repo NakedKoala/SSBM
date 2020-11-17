@@ -36,7 +36,7 @@ This project trains an AI agent to play SSBM with Slippi replay data. The model 
 Use `environment.yml` to create a Conda environment. It contains all necessary dependency
 
 
-### Usage
+## Usage
 
 Convert .slp replay files to CSV
 
@@ -87,7 +87,7 @@ for frame in tqdm(slp_object.frames):
 ```
 
 
-### Example output of predicted action
+## Example output of predicted action
 
 ```
 {   'button': {   <Button.BUTTON_A: 'A'>: 0,
