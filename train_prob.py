@@ -91,9 +91,47 @@ def convert_idx_to_one_hot(indices_t):
     ), 1)
 
 
-def eval(model, val_dl, eval_behavior, device):
+def train_eval_common_compute(model, batch, eval_behavior, compute_acc, device):
+    features, cts_targets, button_targets = batch
+
+    cts_idx = convert_cts_to_idx(cts_targets)
+    all_targets = (button_targets.long(),) + cts_idx
+    forced_action = torch.cat(
+        tuple(target.unsqueeze(1) for target in all_targets),
+        axis=1
+    ).to(device)
+
+    features = features.to(device)
+    # import pdb
+    # pdb.set_trace()
+
+    # generate accuracy
+    if compute_acc:
+        with torch.no_grad():
+            _, choices, _ = model(features, behavior=eval_behavior)
+            # was the model's choices correct?
+            choices = choices.to(button_targets.device) # assume button/cts_targets on the same device
+            c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger = get_correct(
+                tuple(choices[:,i] for i in range(choices.shape[1])),
+                (button_targets,) + cts_idx
+            )
+    else:
+        c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger = (0,) * 6
+
+    # generate loss
+    action_logits, _, _ = model(features, forced_action=forced_action)
+    loss = torch.zeros(1).to(device)
+    for logits, target in zip(action_logits, all_targets):
+        loss += cross_entropy(logits, target.to(device))
+
+    return loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger
+
+def train_eval_common_loop(model, dataloader, eval_behavior, device, compute_acc=True, print_out_freq=None, optim=None):
     model.to(device)
-    model.eval()
+    if optim:
+        model.train()
+    else:
+        model.eval()
 
     total_loss = 0
     correct_btn = 0
@@ -105,53 +143,49 @@ def eval(model, val_dl, eval_behavior, device):
     num_batch = 0
     num_total = 0
 
-    for batch in tqdm(val_dl, position=0, leave=True):
-        # pretty much the same as train, but without optimizer
+    def print_stats():
+        print(f'iter: {num_batch}, '
+            f'loss: {total_loss/num_batch}, ')
+        if compute_acc:
+            print(f'button acc: {correct_btn/num_total}, '
+                f'coarse acc: {correct_coarse/num_total}, '
+                f'fine acc: {correct_fine/num_total}, '
+                f'stick acc: {correct_stick/num_total}, '
+                f'cstick acc: {correct_cstick/num_total}, '
+                f'trigger acc: {correct_trigger/num_total}, ')
+
+    for batch in tqdm(dataloader, position=0, leave=True):
         num_batch += 1
-        features, cts_targets, button_targets = batch
-        num_total += cts_targets.shape[0]
-        features = features.to(device)
-        cts_idx = convert_cts_to_idx(cts_targets)
-        all_targets = (button_targets.long(),) + cts_idx
-        forced_action = torch.cat(
-            tuple(target.unsqueeze(1) for target in all_targets),
-            axis=1
-        ).to(device)
-        with torch.no_grad():
-            logits_forced, _, _ = model(features, forced_action=forced_action)
-            _, choices, _ = model(features, behavior=eval_behavior)
+        num_total += batch[0].shape[0]
+        if optim:
+            optim.zero_grad()
+            loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger = \
+                train_eval_common_compute(model, batch, eval_behavior, compute_acc, device)
+            loss.backward()
+            optim.step()
+        else:
+            with torch.no_grad():
+                loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger = \
+                    train_eval_common_compute(model, batch, eval_behavior, compute_acc, device)
 
-            loss = torch.zeros(1).to(device)
-            for logits, target in zip(logits_forced, all_targets):
-                loss += cross_entropy(logits, target.to(device))
+        total_loss += loss.item()
+        correct_btn += c_btn
+        correct_coarse += c_coarse
+        correct_fine += c_fine
+        correct_stick += c_stick
+        correct_cstick += c_cstick
+        correct_trigger += c_trigger
 
-            total_loss += loss.item()
+        if print_out_freq and num_batch % print_out_freq == 0:
+            print_stats()
 
-            # was the model's choices correct?
-            choices = choices.to(button_targets.device) # assume button/cts_targets on the same device
-            c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger = get_correct(
-                tuple(choices[:,i] for i in range(choices.shape[1])),
-                (button_targets,) + cts_idx
-            )
-            correct_btn += c_btn
-            correct_coarse += c_coarse
-            correct_fine += c_fine
-            correct_stick += c_stick
-            correct_cstick += c_cstick
-            correct_trigger += c_trigger
+    print_stats()
+    return total_loss, correct_btn, correct_coarse, correct_fine, correct_stick, correct_cstick, correct_trigger
 
-    print(f'loss: {total_loss/num_batch}, '
-        f'button acc: {correct_btn/num_total}, '
-        f'coarse acc: {correct_coarse/num_total}, '
-        f'fine acc: {correct_fine/num_total}, '
-        f'stick acc: {correct_stick/num_total}, '
-        f'cstick acc: {correct_cstick/num_total}, '
-        f'trigger acc: {correct_trigger/num_total}, ')
+def eval(model, val_dl, eval_behavior, device):
+    train_eval_common_loop(model, val_dl, eval_behavior, device)
 
-
-def train(model, trn_dl, val_dl, epoch, eval_behavior, print_out_freq, device):
-    model.to(device)
-
+def train(model, trn_dl, val_dl, epoch, eval_behavior, print_out_freq, compute_acc, device):
     def lr_schedule(epoch):
         if epoch < 3:
             return 1
@@ -165,37 +199,9 @@ def train(model, trn_dl, val_dl, epoch, eval_behavior, print_out_freq, device):
     scheduler = LambdaLR(optim, lr_lambda=[lr_schedule])
 
     for i in range(epoch):
-        iter_num = 0
-        epoch_loss = 0
-        model.train()
-        for batch in tqdm(trn_dl, position=0, leave=True):
-            iter_num += 1
-            optim.zero_grad()
-            features, cts_targets, button_targets = batch
+        print(f'***TRAIN EPOCH {i}***')
+        train_eval_common_loop(model, trn_dl, eval_behavior, device, optim=optim, print_out_freq=print_out_freq, compute_acc=compute_acc)
 
-            cts_idx = convert_cts_to_idx(cts_targets)
-            all_targets = (button_targets.long(),) + cts_idx
-            forced_action = torch.cat(
-                tuple(target.unsqueeze(1) for target in all_targets),
-                axis=1
-            ).to(device)
-
-            features = features.to(device)
-            # import pdb
-            # pdb.set_trace()
-            action_logits, _, _ = model(features, forced_action=forced_action)
-
-            loss = torch.zeros(1).to(device)
-            for logits, target in zip(action_logits, all_targets):
-                loss += cross_entropy(logits, target.to(device))
-
-            loss.backward()
-            epoch_loss += loss.item()
-            optim.step()
-            if iter_num % print_out_freq == 0:
-                print(f'epoch: {i} trn_loss: {epoch_loss / iter_num}')
-
-        print(f'end of {i}th epoch trn_loss: {epoch_loss / iter_num}')
-        print(f'Eval epoch {i}')
+        print(f'***EVAL EPOCH {i}***')
         eval(model, val_dl, eval_behavior, device)
         scheduler.step()
