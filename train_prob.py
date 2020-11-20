@@ -115,6 +115,12 @@ def train_eval_common_compute(model, batch, eval_behavior, compute_acc, device):
                 tuple(choices[:,i] for i in range(choices.shape[1])),
                 (button_targets,) + cts_idx
             )
+            c_btn = c_btn.item()
+            c_coarse = c_coarse.item()
+            c_fine = c_fine.item()
+            c_stick = c_stick.item()
+            c_cstick = c_cstick.item()
+            c_trigger = c_trigger.item()
     else:
         c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger = (0,) * 6
 
