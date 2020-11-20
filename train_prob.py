@@ -185,7 +185,7 @@ def train_eval_common_loop(model, dataloader, eval_behavior, device, compute_acc
 def eval(model, val_dl, eval_behavior, device):
     train_eval_common_loop(model, val_dl, eval_behavior, device)
 
-def train(model, trn_dl, val_dl, epoch, eval_behavior, print_out_freq, compute_acc, device):
+def train(model, trn_dl, val_dl, epoch, eval_behavior, print_out_freq, compute_acc, device, initial_lr=0.01):
     def lr_schedule(epoch):
         if epoch < 3:
             return 1
@@ -195,7 +195,7 @@ def train(model, trn_dl, val_dl, epoch, eval_behavior, print_out_freq, compute_a
             return 0.01
         return 0.001
 
-    optim = Adam(model.parameters(), lr=0.01, weight_decay=1e-5)
+    optim = Adam(model.parameters(), lr=initial_lr, weight_decay=1e-5)
     scheduler = LambdaLR(optim, lr_lambda=[lr_schedule])
 
     for i in range(epoch):
