@@ -83,7 +83,7 @@ out_hidden_sizes=[
     [16, 16], # cstick fine
     [128, 128], # cstick magn
     [256, 128], # trigger
-])
+]
 
 experiments = [
     [1, False, 0.01],
