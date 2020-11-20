@@ -58,7 +58,7 @@ def get_correct(choices, targets):
 
 
     return tuple(map(
-        torch.count_nonzero,
+        torch.sum,
         (correct_btn, correct_coarse, correct_fine, correct_stick, correct_cstick, correct_trigger)
     ))
 
