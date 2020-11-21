@@ -2,13 +2,15 @@ from slp_parser import SLPParser
 from torch.utils.data import DataLoader
 from dataset import SSBMDataset
 from mvp_model import SSBM_MVP
-from train import train
+# from train import train
+from train_prob import train
 import torch
 from slippi import Game
 from infra_adaptor import convert_frame_to_input_tensor, convert_output_tensor_to_command, FrameContext
 from common_parsing_logic import proc_button_press
 from mvp_model import SSBM_MVP
 from lstm_model import SSBM_LSTM
+from lstm_model_prob import SSBM_LSTM_Prob
 import traceback
 from tqdm import tqdm
 import time 
@@ -28,7 +30,10 @@ trn_ds = SSBMDataset(src_dir="./", char_id=2, opponent_id=1, window_size=10, dev
 trn_dl = DataLoader(trn_ds, batch_size=256, shuffle=True, num_workers=0)
 
 
-model = SSBM_LSTM(100, 50, hidden_size=256, num_layers=1, bidirectional=False, attention=True)
+# model = SSBM_LSTM(100, 50, hidden_size=256, num_layers=1, bidirectional=False, attention=True)
+
+model = SSBM_LSTM_Prob(100, 50, hidden_size=256, num_layers=1, bidirectional=False, attention=True)
+
 # # # model = SSBM_MVP(100, 50)
 # for batch in trn_dl:
 #     feat, cts_targets, button_targets = batch
@@ -37,7 +42,8 @@ model = SSBM_LSTM(100, 50, hidden_size=256, num_layers=1, bidirectional=False, a
 #     pdb.set_trace()
 
 # model = SSBM_MVP(100, 50)
-train(model, trn_dl, trn_dl, 20,  5000, device, [1] * 5)
+# train(model, trn_dl, trn_dl, 20,  5000, device, [1] * 5)
+train(model, trn_dl, trn_dl, 1, 2, 5000, device)
 
 
 # Sample usage: infra adaptors
