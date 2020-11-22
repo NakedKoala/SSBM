@@ -151,14 +151,14 @@ def train_eval_common_loop(model, dataloader, eval_behavior, device, compute_acc
 
     def print_stats():
         print(f'iter: {num_batch}, '
-            f'loss: {total_loss/num_batch}, ')
+            f'loss: {total_loss/num_batch}, ', flush=True)
         if compute_acc:
             print(f'button acc: {correct_btn/num_total}, '
                 f'coarse acc: {correct_coarse/num_total}, '
                 f'fine acc: {correct_fine/num_total}, '
                 f'stick acc: {correct_stick/num_total}, '
                 f'cstick acc: {correct_cstick/num_total}, '
-                f'trigger acc: {correct_trigger/num_total}, ')
+                f'trigger acc: {correct_trigger/num_total}, ', flush=True)
 
     for batch in tqdm(dataloader, position=0, leave=True):
         num_batch += 1
@@ -205,9 +205,9 @@ def train(model, trn_dl, val_dl, epoch, eval_behavior, print_out_freq, compute_a
     scheduler = LambdaLR(optim, lr_lambda=[lr_schedule])
 
     for i in range(epoch):
-        print(f'***TRAIN EPOCH {i}***')
+        print(f'***TRAIN EPOCH {i}***', flush=True)
         train_eval_common_loop(model, trn_dl, eval_behavior, device, optim=optim, print_out_freq=print_out_freq, compute_acc=compute_acc)
 
-        print(f'***EVAL EPOCH {i}***')
+        print(f'***EVAL EPOCH {i}***', flush=True)
         eval(model, val_dl, eval_behavior, device)
         scheduler.step()
