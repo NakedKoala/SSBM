@@ -63,7 +63,7 @@ pd.options.mode.chained_assignment = None  # default='warn'
 # model = SSBM_MVP_Prob(100, 50)
 # model = SSBM_LSTM_Prob(action_embedding_dim = 100, button_embedding_dim = 50, hidden_size = 256, num_layers = 3, bidirectional=True, dropout_p=0.2)
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
-print(f'Training on device: {device}')
+print(f'Training on device: {device}',flush=True)
 
 trn_ds = SSBMDataset(src_dir="./dev_data_csv/train", char_id=2, opponent_id=1, window_size=60, device='cpu')
 val_ds = SSBMDataset(src_dir="./dev_data_csv/valid", char_id=2, opponent_id=1, window_size=60, device='cpu')
