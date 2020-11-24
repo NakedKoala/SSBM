@@ -10,6 +10,7 @@ from torch.optim import Adam
 import pdb
 from sklearn.metrics import precision_recall_fscore_support
 import numpy as np
+warnings.filterwarnings('ignore')
 
 def top_n_accuracy(preds, targets, n):
     best_n = np.argsort(preds, axis=1)[:, -n:]
