@@ -208,6 +208,6 @@ def train(model, trn_dl, val_dl, epoch, eval_behavior, print_out_freq, compute_a
         print(f'***TRAIN EPOCH {i}***', flush=True)
         train_eval_common_loop(model, trn_dl, eval_behavior, device, optim=optim, print_out_freq=print_out_freq, compute_acc=compute_acc)
 
-        print(f'***EVAL EPOCH {i}***')
+        print(f'***EVAL EPOCH {i}***', flush=True)
         eval(model, val_dl, eval_behavior, device)
         scheduler.step()
