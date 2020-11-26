@@ -1,11 +1,15 @@
 #!/usr/bin/python3
 import sys
 import melee
+import torch
+import time
 
 from mvp_model import SSBM_MVP
-from infra_adaptor import convert_frame_to_input_tensor, convert_output_tensor_to_command
+from lstm_model import SSBM_LSTM
+from lstm_model_prob import SSBM_LSTM_Prob
+from infra_adaptor import convert_frame_to_input_tensor, convert_output_tensor_to_command, FrameContext, convert_action_state_to_command
 
-DOLPHIN_EXE_PATH = '/home/cs488/Desktop/slippi/AppRun' # TODO: modularize to arg
+DOLPHIN_EXE_PATH = '/Applications/Slippi Dolphin.app' # change to yours
 
 class MeleeAI:
 
@@ -19,7 +23,17 @@ class MeleeAI:
 
 
     def __init__(self):
-        self.model = SSBM_MVP(100, 50)
+        # self.model = SSBM_MVP(100, 50)
+        # self.model.load_state_dict(torch.load('./weights/mvp_fit5_EP7_VL0349.pth',  map_location=lambda storage, loc: storage))
+
+        self.model = SSBM_LSTM_Prob(action_embedding_dim=100, button_embedding_dim=50, hidden_size=256, num_layers=3, bidirectional=True, dropout_p=0.2)
+        self.model.load_state_dict(torch.load('./weights/weights_lstm_action_head_delay_0_2020_11_18.pth',  map_location=lambda storage, loc: storage))
+
+        self.frame_ctx = FrameContext(window_size=60)
+
+        self.time = 0
+
+        self.frames = []
 
         self.previousDamage = [0, 0]
         self.previousFacing = [True, False]
@@ -58,16 +72,16 @@ class MeleeAI:
         print("Controller connected")
 
     def next_state(self):
-            #self.controller.release_all()  # releases buttons pressed last frame
-            return self.console.step()  # get frame data
+        print(time.time() - self.time)
+        self.time = time.time()
+        return self.console.step()  # get frame data
 
     def input_model_commands(self, frame):
+        self.frames.append(torch.unsqueeze(self.frame_ctx.push_frame(frame, char_id=2, opponent_id=1),0))
 
-        convert_frame_to_input_tensor(frame, char_id=2, opponent_id=1)
+        _, choices, _ =  self.model(self.frames[-1])
 
-        feature_tensor = convert_frame_to_input_tensor(frame, char_id=2, opponent_id=1)
-        cts_targets, button_targets = self.model(feature_tensor)
-        commands = convert_output_tensor_to_command(cts_targets, button_targets)
+        commands = convert_action_state_to_command(choices[0])
 
         for button, pressed in commands["button"].items():
             if pressed == 1:
@@ -75,10 +89,13 @@ class MeleeAI:
             else:
                 self.controller.release_button(button)
 
-        self.controller.press_shoulder(melee.enums.Button.BUTTON_L, commands["l_shoulder"])
-        self.controller.press_shoulder(melee.enums.Button.BUTTON_R, commands["r_shoulder"])
-        self.controller.tilt_analog(melee.enums.Button.BUTTON_MAIN, commands["main_stick"][0], commands["main_stick"][1])
-        self.controller.tilt_analog(melee.enums.Button.BUTTON_C, commands["c_stick"][0], commands["c_stick"][1])
+        if commands["main_stick"][0] > 0.1 or commands["main_stick"][1] > 0.1:
+            print(commands)
+
+        self.controller.press_shoulder(melee.enums.Button.BUTTON_L, commands["l_shoulder"] if commands["l_shoulder"] > 0 else 0)
+        self.controller.press_shoulder(melee.enums.Button.BUTTON_R, commands["r_shoulder"] if commands["r_shoulder"] > 0 else 0)
+        self.controller.tilt_analog_unit(melee.enums.Button.BUTTON_MAIN, commands["main_stick"][0], commands["main_stick"][1])
+        self.controller.tilt_analog_unit(melee.enums.Button.BUTTON_C, commands["c_stick"][0], commands["c_stick"][1])
 
     def parse_gamestate(self, gamestate):
         frame = self.MeleeFrame(self.frameCount)
@@ -106,8 +123,8 @@ class MeleeAI:
             frame.ports[i - 1].leader.pre.position.y = playerState._prev_y
 
             frame.ports[i - 1].leader.pre.joystick = frame.Object()
-            frame.ports[i - 1].leader.pre.joystick.x = controllerState.main_stick[0]
-            frame.ports[i - 1].leader.pre.joystick.y = controllerState.main_stick[1]
+            frame.ports[i - 1].leader.pre.joystick.x = (controllerState.main_stick[0] - 0.5) * 2
+            frame.ports[i - 1].leader.pre.joystick.y = (controllerState.main_stick[1] - 0.5) * 2
 
             frame.ports[i - 1].leader.pre.cstick = frame.Object()
             frame.ports[i - 1].leader.pre.cstick.x = controllerState.c_stick[0]
@@ -175,7 +192,8 @@ class MeleeAI:
                 self.game_loop()
 
             elif gamestate.menu_state == melee.enums.Menu.CHARACTER_SELECT:
-                melee.menuhelper.MenuHelper.choose_character(melee.enums.Character.CPTFALCON, gamestate, 2, self.controller, swag=True)
+                melee.menuhelper.MenuHelper.choose_character(melee.enums.Character.CPTFALCON, gamestate, self.controller, swag=True)
+
             elif gamestate.menu_state == melee.enums.Menu.STAGE_SELECT:
                 melee.menuhelper.MenuHelper.choose_stage(melee.enums.Stage.FINAL_DESTINATION, gamestate, self.controller)
 

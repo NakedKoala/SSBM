@@ -86,12 +86,12 @@ def convert_action_state_to_command(idx_state):
         'l_shoulder': 0,
         'r_shoulder': trigger,
         'button': {
-            'Y': 0,
-            'X': buttons[0],
-            'B': buttons[1],
-            'A': buttons[2],
-            'L': 0,
-            'R': buttons[3],
-            'Z': buttons[4]
+            melee.enums.Button.BUTTON_Y: 0,
+            melee.enums.Button.BUTTON_X: buttons[0],
+            melee.enums.Button.BUTTON_B: buttons[1],
+            melee.enums.Button.BUTTON_A: buttons[2],
+            melee.enums.Button.BUTTON_L: 0,
+            melee.enums.Button.BUTTON_R: buttons[3],
+            melee.enums.Button.BUTTON_Z: buttons[4]
         }
     }
