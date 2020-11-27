@@ -2,12 +2,12 @@ import communication
 
 import time
 
-sub_socket = communication.SubSocket(None, 50002)
+sub_socket = communication.PullSocket(None, 50002)
 
-time.sleep(10)
+# time.sleep(10)
 print(sub_socket.recv(block=False))
-time.sleep(5)
-print(sub_socket.recv(block=False))
+# time.sleep(5)
+# print(sub_socket.recv(block=False))
 
 """
 time.sleep(5)

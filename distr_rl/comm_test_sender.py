@@ -4,12 +4,18 @@ import time
 
 import torch
 
-pub_socket = communication.PubSocket(None, 50002, bind=True)
+pub_socket = communication.PushSocket(None, 50002, bind=True)
 
+pub_socket.send(0, block=False)
+print("done push")
+time.sleep(10)
+
+"""
 for i in range(100):
     print(i)
     pub_socket.send(i)
     time.sleep(1)
+"""
 
 """
 time.sleep(3)

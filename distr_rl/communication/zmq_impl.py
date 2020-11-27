@@ -66,6 +66,7 @@ class ZMQRecvSocket(RecvSocketBase):
         except zmq.ZMQError as e:
             return None
 
+# NOTE: only the latest message is received.
 class ZMQSubSocket(ZMQRecvSocket):
     def __init__(self, address, port, bind=False):
         super().__init__(address, port, zmq.SUB, bind=bind,
