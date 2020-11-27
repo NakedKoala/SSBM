@@ -15,6 +15,7 @@ setup(
         'pandas',
         'scikit-learn',
         'tqdm',
+        'pyzmq',
         'py-slippi',
         'melee',
     ],
