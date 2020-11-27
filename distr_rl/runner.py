@@ -1,9 +1,10 @@
-# runs the experience generator for A3C
+# handles communication for the A3C runner
 # first, waits for the trainer to give it a model
 # then continually:
 #   - generates experiences with the current model
 #   - every number of frames, sends experiences to the trainer
 #   - every number of frames, checks for model update (might not occur)
+
 from communication import *
 
 import time
@@ -33,6 +34,7 @@ def run_loop(
         if max_episodes and cur_eps >= max_episodes:
             break
 
+        # wait for latest model before starting the episode
         _check_model_updates(model, param_socket, block=True)
 
         cur_frame = 1
@@ -49,6 +51,7 @@ def run_loop(
                 experiences.clear()
 
             if check_model_upd_every and cur_frame % check_model_upd_every == 0:
+                # don't block
                 _check_model_updates(model, param_socket)
 
             cur_frame += 1

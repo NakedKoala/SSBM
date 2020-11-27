@@ -1,4 +1,4 @@
-# runs 'A3C' but only trains on 1 node
+# handles communication for the A3C trainer
 # takes in an actor-critic model to train
 # continually:
 #   - requests workers for training data
@@ -33,8 +33,10 @@ def process_exps_loop(
 
         process_exp_socket.send(example)
 
+
 def _save_model(model, save_path):
     torch.save(model.state_dict(), save_path)
+
 
 def train_loop(
     model,                  # actor-critic model
@@ -74,11 +76,14 @@ def train_loop(
         print("current step", cur_step)
 
         # get training data
+        imm_fail = False        # immediately failed to get examples?
         while len(new_exps) < exp_batch_size:
+            # don't block - runner might be waiting for model params.
             exp = process_exp_socket.recv(block=False)
             print("trainer received", exp)
             if exp is None:
                 break
+            imm_fail = False
             new_exps.extend(exp)
 
         # train if possible
@@ -95,9 +100,19 @@ def train_loop(
             print("send param update", cur_step)
             param_socket.send(cur_step)
 
+        # checkpoint
         if save_every and cur_step % save_every == 0:
             # _save_model(model, save_path)
             pass
+
+        if imm_fail and len(new_exps) < exp_batch_size:
+            # if we immediately failed to get an example, and
+            # there are not enough examples queued, wait a bit
+            # so we don't increment steps too quickly.
+            # this should primarily happen when runners are connecting
+            # to the trainer.
+            print("trainer pausing")
+            time.sleep(0.5)
 
         cur_step += 1
 
