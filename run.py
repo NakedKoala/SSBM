@@ -1,20 +1,23 @@
-from slp_parser import SLPParser
-from torch.utils.data import DataLoader
-from dataset import SSBMDataset
-from mvp_model import SSBM_MVP
-# from train import train
-from train_prob import train
 import torch
+from torch.utils.data import DataLoader
+
 from slippi import Game
-from infra_adaptor import convert_frame_to_input_tensor, convert_output_tensor_to_command, FrameContext
-from common_parsing_logic import proc_button_press
-from mvp_model import SSBM_MVP
-from lstm_model import SSBM_LSTM
-from lstm_model_prob import SSBM_LSTM_Prob
+
 import traceback
 from tqdm import tqdm
-import time 
+import time
 import numpy as np
+
+from ssbm_bot.data.slp_parser import SLPParser
+from ssbm_bot.data.dataset import SSBMDataset
+from ssbm_bot.data.infra_adaptor import convert_frame_to_input_tensor, convert_output_tensor_to_command, FrameContext
+from ssbm_bot.data.common_parsing_logic import proc_button_press
+from ssbm_bot.model.mvp_model import SSBM_MVP
+from ssbm_bot.model.mvp_model import SSBM_MVP
+from ssbm_bot.model.lstm_model import SSBM_LSTM
+from ssbm_bot.model.lstm_model_prob import SSBM_LSTM_Prob
+
+from ssbm_bot.supervised_train.train_prob import train
 
 # Sample usage for the parser
 # if __name__ == '__main__':
@@ -38,7 +41,7 @@ model = SSBM_LSTM_Prob(100, 50, hidden_size=256, num_layers=1, bidirectional=Fal
 # for batch in trn_dl:
 #     feat, cts_targets, button_targets = batch
 #     cts_o, logits_o = model(feat)
-#     import pdb 
+#     import pdb
 #     pdb.set_trace()
 
 # model = SSBM_MVP(100, 50)

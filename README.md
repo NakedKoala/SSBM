@@ -31,9 +31,11 @@ This project trains an AI agent to play SSBM with Slippi replay data. The model 
 `infra_adaptor.py` contains adaptor that converts game state to input tensor and output tensor to game action.
 
 
-### Required Library
+### Installation
 
 Use `environment.yml` to create a Conda environment. It contains all necessary dependency
+
+Alternative: using `pip`: `pip install .` in the project directory.
 
 
 ## Usage
