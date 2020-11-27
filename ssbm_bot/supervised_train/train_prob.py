@@ -4,8 +4,9 @@ from torch.optim import Adam
 from torch.optim.lr_scheduler import LambdaLR
 from tqdm import tqdm
 import numpy as np
-import controller_indices as c_idx
 import math
+
+from .. import controller_indices as c_idx
 
 ACCURACY_EPS = 1e-1
 # each input is a tuple of 8 tensors

@@ -4,10 +4,10 @@ import melee
 import torch
 import time
 
-from mvp_model import SSBM_MVP
-from lstm_model import SSBM_LSTM
-from lstm_model_prob import SSBM_LSTM_Prob
-from infra_adaptor import convert_frame_to_input_tensor, convert_output_tensor_to_command, FrameContext, convert_action_state_to_command
+from ssbm_bot.model.mvp_model import SSBM_MVP
+from ssbm_bot.model.lstm_model import SSBM_LSTM
+from ssbm_bot.model.lstm_model_prob import SSBM_LSTM_Prob
+from ssbm_bot.data.infra_adaptor import convert_frame_to_input_tensor, convert_output_tensor_to_command, FrameContext, convert_action_state_to_command
 
 DOLPHIN_EXE_PATH = '/Applications/Slippi Dolphin.app' # change to yours
 

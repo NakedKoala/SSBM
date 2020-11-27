@@ -1,9 +1,10 @@
 
 
-from common_parsing_logic import proc_frame, initialize_dataframe_dict, proc_df, data_pre_proc_mvp, align
-from slp_parser import SLPParser
-from dataset import SSBMDataset
-import controller_indices as c_idx
+from .common_parsing_logic import proc_frame, initialize_dataframe_dict, proc_df, data_pre_proc_mvp, align
+from .slp_parser import SLPParser
+from .dataset import SSBMDataset
+from .. import controller_indices as c_idx
+
 import pandas as pd
 import torch
 from torch.distributions.categorical import Categorical

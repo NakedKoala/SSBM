@@ -3,7 +3,8 @@ import torch.nn as nn
 from torch.nn import Embedding, Linear, Sequential, ReLU, Dropout, ModuleList
 from torch.nn.functional import softmax
 from torch.distributions import Categorical, Uniform
-import controller_indices as c_idx
+
+from .. import controller_indices as c_idx
 
 class ActionHead(nn.Module):
     def __init__(self, in_features,

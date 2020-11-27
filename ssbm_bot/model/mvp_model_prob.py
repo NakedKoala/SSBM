@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
 from torch.nn import Embedding, Linear, Dropout, ReLU, Dropout, Sequential
-from action_head import ActionHead
 import pdb
+
+from .action_head import ActionHead
 
 # Based on SSBM_MVP, but outputs a (partial) probability distribution rather than an action.
 class SSBM_MVP_Prob(nn.Module):

@@ -8,7 +8,8 @@ import pdb
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 import traceback
-from common_parsing_logic import proc_df, align, scale
+
+from .common_parsing_logic import proc_df, align, scale
 
 
 def find_le_idx(a, x):
