@@ -5,10 +5,14 @@
 #   - trains the model on the received data
 #   - push parameters to workers
 
-from communication import *
+from .a3c import A3CTrainer
+from .communication import *
+from .payloads import ProcExpPayload
+from ..data.common_parsing_logic import align
 
 import multiprocessing as mp
 import time
+import sys
 
 import torch
 
@@ -16,7 +20,7 @@ def process_exps_loop(
     exp_port,
     return_port,
     window_size,
-    frame_delay,
+    # frame_delay,
     exp_batch_size,
 ):
     exp_socket = PullSocket(None, exp_port, bind=True)
@@ -25,13 +29,41 @@ def process_exps_loop(
     # get example from the runners, process it,
     # then push to the trainer.
     while True:
-        example = exp_socket.recv()
+        experiences = exp_socket.recv()
+        print("process_exp received payload")
 
-        print("process_exp received", example)
+        # process experiences into training examples
+        state_queue = experiences.init_states
+        # input_queue = experiences.init_inputs
+        if len(state_queue) != window_size-1:
+            sys.stderr.write("process_exp received payload with initial state "
+                             "length != window_size-1. Skipping.\n")
+            continue
 
-        # process it here
+        if not (
+            len(experiences.states) == len(experiences.actions) == len(experiences.rewards)
+        ):
+            sys.stderr.write("process_exp received payload with unequal state/action/reward "
+                             "lengths. Skipping.\n")
+            continue
 
-        process_exp_socket.send(example)
+        payloads = []
+        for i in range(len(experiences.states)):
+            states_window = align(state_queue, window_size, experiences.states[i])
+            if i < len(states)-1:
+                next_state = experiences.states[i+1]
+            else:
+                next_state = experiences.final_state
+            payloads.append(
+                ProcExpPayload(
+                    stale_states=states_window,
+                    next_state=next_state,
+                    action=experiences.actions[i],
+                    reward=experiences.rewards[i]
+                )
+            )
+
+        process_exp_socket.send(payloads)
 
 
 def _save_model(model, save_path):
@@ -39,22 +71,24 @@ def _save_model(model, save_path):
 
 
 def train_loop(
-    model,                  # actor-critic model
+    trainer,                # A3C trainer with model
+    optimizer,              # optimizer to use
     exp_port,               # port for experience socket
     param_port,             # port for parameters socket
     exp_process_port,       # port for experience processing socket
     window_size,            # window size of full game state
-    frame_delay,            # number of frames between window and current frame
+    # frame_delay,            # number of frames between window and current frame
     save_path,              # location to save weights
-    send_param_every=10,    # frequency of sending parameters to runners
+    send_param_every=10,    # frequency of sending parameters to runners, in seconds.
     exp_batch_size=256,     # experience batch size for training
-    # exp_pull_lim=16,        # maximum number of experience messages to process at a time
     max_steps=None,         # maximum number of batches to train on
-    save_every=None,        # frequecy of saving model weights
+    save_every=None,        # frequecy of saving model weights, in steps.
     spawn_proc=True,        # should the trainer spawn the exp processing process?
 ):
     process_exp_socket = PullSocket(None, exp_process_port, bind=True)
     param_socket = PubSocket(None, param_port, bind=True)
+
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
     if spawn_proc:
         process_exps_proc = mp.Process(target=process_exps_loop, args=(
@@ -66,14 +100,15 @@ def train_loop(
         ), daemon=True)
         process_exps_proc.start()
 
+    # number of training steps done
     cur_step = 0
+    # time since last parameter send
+    last_param_send_time = time.perf_counter()
+    # unbatched buffer of experiences from the experience processor
     new_exps = []
     while True:
         if max_steps and cur_step >= max_steps:
             break
-
-        time.sleep(1)
-        print("current step", cur_step)
 
         # get training data
         imm_fail = False        # immediately failed to get examples?
@@ -87,47 +122,59 @@ def train_loop(
             new_exps.extend(exp)
 
         # train if possible
-        print("cur batch size:", len(new_exps))
         if len(new_exps) >= exp_batch_size:
             batch = new_exps[:exp_batch_size]
-            print("training:", batch)
+            print("training")
+
+            states, inputs, actions, rewards = [], [], [], []
+            for payload in batch:
+                states.append(payload.stale_states)
+                inputs.append(payload.recent_inputs)
+                actions.append(payload.action)
+                rewards.append(payload.reward)
+
+            states_t = torch.stack(states).to(device)
+            actions_t = torch.stack(actions).to(device)
+            rewards_t = torch.stack(rewards).to(device)
+
+            trainer.optimize(optimizer, False, next_state, states_t, actions_t, rewards_t, 0.99))
+
+            # checkpoint
+            if save_every and cur_step % save_every == 0:
+                _save_model(trainer.model, save_path)
 
             new_exps = new_exps[exp_batch_size:]
 
-        # send new parameters to runners
-        if send_param_every and cur_step % send_param_every == 0:
-            # param_socket.send(model.state_dict())
-            print("send param update", cur_step)
-            param_socket.send(cur_step)
-
-        # checkpoint
-        if save_every and cur_step % save_every == 0:
-            # _save_model(model, save_path)
-            pass
-
-        if imm_fail and len(new_exps) < exp_batch_size:
-            # if we immediately failed to get an example, and
-            # there are not enough examples queued, wait a bit
-            # so we don't increment steps too quickly.
-            # this should primarily happen when runners are connecting
-            # to the trainer.
-            print("trainer pausing")
+            cur_step += 1
+        else:
+            # avoid excessive busy waiting
             time.sleep(0.5)
 
-        cur_step += 1
+        # send new parameters to runners
+        if send_param_every and time.perf_counter() >= \
+                last_param_send_time + send_param_every:
+            print("send param update")
+            param_socket.send(trainer.model.state_dict())
+            last_param_send_time = time.perf_counter()
 
-    # _save_model(model, save_path)
+    _save_model(trainer.model, save_path)
 
     # daemonic process_exps_proc expected to exit
 
 if __name__ == '__main__':
+    model = SSBM_LSTM_Prob(
+        action_embedding_dim = 100, button_embedding_dim = 50, hidden_size = 256,
+        num_layers = 1, bidirectional=False, dropout_p=0.2, attention=False
+    )
+    optim = Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
     train_loop(
-        model=None,
+        model=A3CTrainer(model),
+        optimizer=optim
         exp_port=50000,
         param_port=50001,
         exp_process_port=50002,
         window_size=60,
-        frame_delay=15,
+        # frame_delay=15,
         save_path='./test.out',
         send_param_every=3,
         exp_batch_size=16,

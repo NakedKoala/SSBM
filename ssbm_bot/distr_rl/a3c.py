@@ -10,27 +10,27 @@ class A3CTrainer(nn.Module):
     def forward(
         self,
         stale_state,
-        recent_input,
+        # recent_input,
         forced_action=None,
         behavior=behavior
     ):
         return self.model(
-            stale_state, recent_input,
+            stale_state, # recent_input,
             forced_action=forced_action,
             behavior=behavior
         )
 
-    def choose_action(self, stale_state, recent_input, behavior):
+    def choose_action(self, stale_state, behavior):
         self.eval()
         # could add exploration strategy here...
         # or in the runner
-        _, choices, _ = self.forward(stale_state, recent_input, behavior=behavior)
+        _, choices, _ = self.forward(stale_state, behavior=behavior)
         return choices
 
-    def loss_func(self, stale_state, recent_input, action, returns):
+    def loss_func(self, stale_state, action, returns):
         self.train()
         batch_size = stale_state[0].shape
-        logits, _, values = self.forward(stale_state, recent_input, forced_action=action)
+        logits, _, values = self.forward(stale_state, forced_action=action)
         td = returns - values
         critic_loss = td.pow(2)
 
@@ -46,12 +46,12 @@ class A3CTrainer(nn.Module):
 
         return total_loss
 
-    def optimize(self, optimizer, done_episode, next_state, state_buffer, actions, rewards, gamma):
+    def optimize(self, optimizer, done_episode, next_state, stale_states, actions, rewards, gamma):
         if done_episode:
             value_est = 0
         else:
             # bootstrap
-            _, _, value_est = self.model.forward(next_state[0], next_state[1])[-1][0].item()
+            _, _, value_est = self.model.forward(stale_states)[-1][0].item()
 
         returns = []
         for rwd in rewards[::-1]:
@@ -61,8 +61,9 @@ class A3CTrainer(nn.Module):
         returns = torch.Tensor(returns).to(state_buffer[0].device)
         # returns = (returns - returns.mean()) / (returns.std() + 1e-5)
 
-        loss = self.loss_func(state_buffer[0], state_buffer[1], actions, returns)
+        loss = self.loss_func(stale_states, actions, returns)
 
+        # sometimes adjust gradient randomly for exploration?
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
