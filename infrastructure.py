@@ -23,13 +23,12 @@ class MeleeAI:
 
 
     def __init__(self):
-        # self.model = SSBM_MVP(100, 50)
-        # self.model.load_state_dict(torch.load('./weights/mvp_fit5_EP7_VL0349.pth',  map_location=lambda storage, loc: storage))
+        self.model = SSBM_MVP(100, 50)
+        self.model.load_state_dict(torch.load('./weights/ann_delay1_ep3.pth',  map_location=lambda storage, loc: storage))
 
-        self.model = SSBM_LSTM_Prob(action_embedding_dim=100, button_embedding_dim=50, hidden_size=256, num_layers=3, bidirectional=True, dropout_p=0.2)
-        self.model.load_state_dict(torch.load('./weights/weights_lstm_action_head_delay_0_2020_11_18.pth',  map_location=lambda storage, loc: storage))
-
-        self.frame_ctx = FrameContext(window_size=60)
+        # self.model = SSBM_LSTM_Prob(action_embedding_dim=100, button_embedding_dim=50, hidden_size=256, num_layers=3, bidirectional=True, dropout_p=0.2)
+        # self.model.load_state_dict(torch.load('./weights/weights_lstm_action_head_delay_0_2020_11_18.pth',  map_location=lambda storage, loc: storage))
+        # self.frame_ctx = FrameContext(window_size=60)
 
         self.time = 0
 
@@ -77,11 +76,13 @@ class MeleeAI:
         return self.console.step()  # get frame data
 
     def input_model_commands(self, frame):
-        self.frames.append(torch.unsqueeze(self.frame_ctx.push_frame(frame, char_id=2, opponent_id=1),0))
+        # self.frames.append(torch.unsqueeze(self.frame_ctx.push_frame(frame, char_id=2, opponent_id=1),0))
+        # _, choices, _ =  self.model(self.frames[-1])
+        # commands = convert_action_state_to_command(choices[0])
 
-        _, choices, _ =  self.model(self.frames[-1])
-
-        commands = convert_action_state_to_command(choices[0])
+        self.frames.append(convert_frame_to_input_tensor(frame, char_id=2, opponent_id=1))
+        cts_targets, button_targets = self.model(self.frames[-1])
+        commands = convert_output_tensor_to_command(cts_targets, button_targets)
 
         for button, pressed in commands["button"].items():
             if pressed == 1:
@@ -183,8 +184,10 @@ class MeleeAI:
             self.frameCount += 1
 
     def start(self):
+       
         while True:
             gamestate = self.next_state()
+          
             if gamestate is None:  # loop happened before game state changed/posted new frame
                 continue
 
