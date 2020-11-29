@@ -81,6 +81,8 @@ def train_loop(
     param_socket = PubSocket(None, param_port, bind=True)
 
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    print("using device:", device)
+    trainer.model.to(device)
 
     if spawn_proc:
         process_exps_proc = mp.Process(target=process_exps_loop, args=(
@@ -111,7 +113,7 @@ def train_loop(
             states_t = exp.states_input.to(device)
             actions_t = exp.actions.to(device)
             rewards = exp.rewards
-            next_state = exp.final_state
+            next_state = exp.final_state.to(device)
             done = (next_state is None)
 
             loss = trainer.optimize(optimizer, done, next_state, states_t, actions_t, rewards, 0.99)
@@ -133,7 +135,9 @@ def train_loop(
         if send_param_every and time.perf_counter() >= \
                 last_param_send_time + send_param_every:
             # print("send param update")
+            trainer.model.to('cpu')
             param_socket.send(trainer.model.state_dict())
+            trainer.model.to(device)
             last_param_send_time = time.perf_counter()
 
     _save_model(trainer.model, save_path)
