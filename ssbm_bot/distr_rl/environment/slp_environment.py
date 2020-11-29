@@ -2,20 +2,11 @@ from collections import deque
 import slippi
 import torch
 
-from ..data.infra_adaptor import convert_frame_to_input_tensor
-from ..data.common_parsing_logic import align
+from .environment import BaseEnvironment
 
-class BaseEnvironment(object):
-    def __init__(self, frame_delay):
-        raise NotImplementedError()
+from ...data.infra_adaptor import convert_frame_to_input_tensor
+from ...data.common_parsing_logic import align
 
-    # resets the environment and returns an initial state.
-    def reset(self):
-        raise NotImplementedError()
-
-    # executes action immediately and returns delayed state/reward/done.
-    def step(self, action):
-        raise NotImplementedError()
 
 # reads environment from slippi file
 # not tested yet...

@@ -18,6 +18,7 @@ setup(
         'pyzmq',
         'py-slippi',
         'melee',
+        'gym',
     ],
     package_data={},
     # url='',

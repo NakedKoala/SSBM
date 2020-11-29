@@ -22,18 +22,20 @@ def _check_model_updates(model, param_socket, block=False):
         model.load_state_dict(new_model_state)
 
 
+_REWARD_MOVING_AVG_FACTOR = 0.95
 def run_loop(
-    trainer,                    # A3CTrainer with uninitialized actor-critic model
-    environment,                # SSBM environment to train on
-    trainer_ip,                 # IP address of the trainer
-    exp_port,                   # port for experience socket
-    param_port,                 # port for parameters socket
+    trainer,                        # A3CTrainer with uninitialized actor-critic model
+    environment,                    # SSBM environment to train on
+    trainer_ip,                     # IP address of the trainer
+    exp_port,                       # port for experience socket
+    param_port,                     # port for parameters socket
     window_size,
     frame_delay,
-    send_exp_every,             # frequency (frames) of sending experiences
-    check_model_upd_every=10,   # frequency (seconds) of checking for model updates
-    output_reward_every=None,   # frequency (frames) of outputting reward
-    max_episodes=None,          # maximum number of episodes
+    send_exp_every,                 # frequency (frames) of sending experiences
+    check_model_upd_every=10,       # frequency (seconds) of checking for model updates
+    output_reward_every=None,       # frequency (frames) of outputting reward
+    output_eps_every=None,          # frequency (episodes) of ouputting total stats
+    max_episodes=None,              # maximum number of episodes
 ):
     # NOTE frame_delay is currently unused, but once we send recent
     # actions to the model as part of input, we will need frame_delay
@@ -42,6 +44,7 @@ def run_loop(
     param_socket = SubSocket(trainer_ip, param_port)
 
     cur_eps = 1
+    avg_reward = None
     last_model_upd_check = time.perf_counter()
     while True:
         if max_episodes and cur_eps >= max_episodes:
@@ -66,11 +69,14 @@ def run_loop(
         stale_state_buffer.extend(stale_state_align)
 
         # run the entire episode to completion
-        print("runner start episode", cur_eps)
+        if output_eps_every is None or cur_eps % output_eps_every == 0:
+            print("runner start episode", cur_eps)
         while True:
             action = trainer.choose_action(cur_state_t, ActionHead.DEFAULT)
+            # exp processor expects batch dimension
             actions_buffer.append(action)
-            cur_state, reward, done = environment.step(action)
+            # unwrap batch dimension for environment
+            cur_state, reward, done = environment.step(action[0])
             episode_reward += reward
             rewards_buffer.append(reward)
 
@@ -126,7 +132,16 @@ def run_loop(
 
             cur_frame += 1
 
-        print("runner done episode", cur_eps)
-        print("running got reward", episode_reward)
+
+        if avg_reward == None:
+            avg_reward = episode_reward
+        else:
+            avg_reward = _REWARD_MOVING_AVG_FACTOR * avg_reward + \
+                (1.0 - _REWARD_MOVING_AVG_FACTOR) * episode_reward
+
+        if output_eps_every is None or cur_eps % output_eps_every == 0:
+            print("runner done episode", cur_eps)
+            print("runner got reward", episode_reward)
+            print("runner reward moving average", avg_reward)
 
         cur_eps += 1

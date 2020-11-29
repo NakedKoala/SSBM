@@ -113,7 +113,9 @@ def train_loop(
             states_t = exp.states_input.to(device)
             actions_t = exp.actions.to(device)
             rewards = exp.rewards
-            next_state = exp.final_state.to(device)
+            next_state = exp.final_state
+            if next_state is not None:
+                next_state = next_state.to(device)
             done = (next_state is None)
 
             loss = trainer.optimize(optimizer, done, next_state, states_t, actions_t, rewards, 0.99)
