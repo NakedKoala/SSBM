@@ -16,15 +16,14 @@ ExpPayload = namedtuple(
 )
 
 # payload that experience processor sends to the trainer.
-# represents a single training example.
-# use a list of these payloads - one payload per frame/training example.
+# represents a sequence of states/actions/rewards that a runner observed.
 ProcExpPayload = namedtuple(
     'ProcExpPayload',
     [
-        'stale_states',     # delayed window of full game states
-        # 'recent_inputs',    # recent model actions between delay and current time
-        'next_state',       # next state after action was taken - if None, then assume done.
-        'action',           # action for next frame model decided to take
-        'reward',           # immediate reward (or maybe reward from `frame_delay` frames ago?) for executing the action
+        'states_input',      # delayed windows of full game states
+        # 'action_input',    # recent model actions between delay and current time
+        'final_state',      # same as in ExpPayload
+        'actions',          # same as in ExpPayload
+        'rewards',          # same as in ExpPayload
     ]
 )

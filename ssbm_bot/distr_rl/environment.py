@@ -19,6 +19,10 @@ class BaseEnvironment(object):
 
 # reads environment from slippi file
 # not tested yet...
+# NOTE the environment outputs 1 state frame at a time.
+# The caller is responsible for stacking multiple frames for model input.
+# However, the environment IS responsible for frame delay, so the caller does not need to
+# deal with frame delay on the states (but it needs to keep track of recent actions on its own).
 class SLPEnvironment(BaseEnvironment):
     # NOTE convention is: frame_delay == 0 means agent acts ASAP;
     # equivalent to shifting by 1 when forming the dataset.
@@ -28,19 +32,17 @@ class SLPEnvironment(BaseEnvironment):
         self.slp = slippi.Game(slp_filename)
 
         dummy_features = convert_frame_to_input_tensor(self.slp.frames[0], char_id=2, opponent_id=1)
-        self.state_shape = dummy_features.shape
+        # unwrap first dimension
+        self.state_shape = dummy_features.shape[1:]
 
-        self.frame_buffer = deque()
         self.reward_buffer = deque()
-
-        # not worth making a deque since alignment requires reading all frames
-        self.recent_buffer = []
+        self.recent_buffer = deque()
 
         self.device = device
 
+    # always return empty state
     def reset(self):
         self.cur_frame = 0
-        self.frame_buffer.clear()
         self.recent_buffer.clear()
         return torch.zeros(*self.state_shape, device=self.device)
 
@@ -50,10 +52,12 @@ class SLPEnvironment(BaseEnvironment):
             frame = self.slp.frames[self.cur_frame]
 
             # compute new state for now and save it
-            new_state = convert_frame_to_input_tensor(frame, char_id=2, opponent_id=1)
-            recent_buffer.append(new_state)
+            new_state = convert_frame_to_input_tensor(frame, char_id=2, opponent_id=1)[0]
+            self.recent_buffer.append(new_state)
 
             # compute reward function for now and save it
+            # test reward function: +1 for stock taken, -1 for stock loss
+            # (note: we don't actually check who won for this test environment)
             reward = 0
             if self.cur_frame > 0:
                 prev_frame = self.slp.frames[self.cur_frame-1]
@@ -62,24 +66,31 @@ class SLPEnvironment(BaseEnvironment):
                         # hardcode captain falcon as agent
                         # other character is not falcon
                         reward_change = -1 if port.leader.post.character == 2 else 1
-                        if port.leader.post.stock < prev_frame.ports[i].leader.post.stock:
+                        if port.leader.post.stocks < prev_frame.ports[i].leader.post.stocks:
+                            # print("reward change", reward_change)
                             reward += reward_change
 
             # is the game done?
             if self.cur_frame == len(self.slp.frames)-1:
-                reward_buffer.append((reward, True))
+                self.reward_buffer.append((reward, True))
             else:
-                reward_buffer.append((reward, False))
+                self.reward_buffer.append((reward, False))
+
+        self.cur_frame += 1
 
         # not enough recent states - return 0
-        if len(recent_buffer) <= self.frame_delay:
-            self.cur_frame += 1
+        if self.cur_frame < len(self.slp.frames) and len(self.recent_buffer) <= self.frame_delay:
             return torch.zeros(*self.state_shape, device=self.device), 0, False
 
-        # get current delayed state and update recent states buffer
-        delayed_state_t = align(self.frame_buffer, self.window_size, self.recent_buffer[0]).to(self.device)
-        self.recent_buffer.popleft()
+        # get current delayed state and reward
+        if len(self.recent_buffer) > 0:
+            delayed_state_t = self.recent_buffer.popleft()
+        else:
+            delayed_state_t = torch.zeros(*self.state_shape, device=self.device)
 
-        delayed_reward, delayed_done = reward_buffer.popleft()
+        if len(self.reward_buffer) > 0:
+            delayed_reward, delayed_done = self.reward_buffer.popleft()
+        else:
+            delayed_reward, delayed_done = 0, True
 
         return delayed_state_t, delayed_reward, delayed_done
