@@ -20,4 +20,4 @@ class CartPoleModel(nn.Module):
         # also choose actions
         m = Categorical(F.softmax(action_logits, dim=1))
         action = m.sample()
-        return [action_logits], action.unsqueeze(dim=0), state_values
+        return [action_logits], action.unsqueeze(dim=0), state_values.squeeze(dim=1)

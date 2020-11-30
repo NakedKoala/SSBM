@@ -18,7 +18,6 @@ if __name__ == '__main__':
         frame_delay=0,
         send_exp_every=300,
         check_model_upd_every=5,
-        # output_reward_every=1000,
         output_eps_every=20,
         max_episodes=None,
     )

@@ -134,7 +134,7 @@ def train_loop(
             cur_step += 1
 
         # send new parameters to runners
-        if send_param_every and time.perf_counter() >= \
+        if send_param_every is not None and time.perf_counter() >= \
                 last_param_send_time + send_param_every:
             # print("send param update")
             trainer.model.to('cpu')

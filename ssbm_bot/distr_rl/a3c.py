@@ -42,8 +42,7 @@ class A3CTrainer(nn.Module):
             m = torch.distributions.Categorical(probs)
             log_prob += m.log_prob(action[:, i])
 
-        exp_v = log_prob * td.detach().squeeze()
-        actor_loss = -exp_v
+        actor_loss = -log_prob * td.detach()
         total_loss = (critic_loss + actor_loss).mean()
 
         return total_loss

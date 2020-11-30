@@ -113,7 +113,7 @@ def run_loop(
             # add next state after possibly sending data
             stale_state_buffer.append(cur_state)
 
-            if check_model_upd_every and time.perf_counter() >= \
+            if check_model_upd_every is not None and time.perf_counter() >= \
                     last_model_upd_check + check_model_upd_every:
                 # don't block
                 _check_model_updates(trainer.model, param_socket)
