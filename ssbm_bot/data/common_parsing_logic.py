@@ -102,12 +102,13 @@ def proc_df(df, char_id, opponent_id, frame_delay, button_press_indicator_dim, d
         df_char = df[df['post_character'] == char_id]
         df_opp = df[df['post_character'] == opponent_id]
 
-        char_features_df, char_cmd_df, char_targets_df = df_char[feat_cols].shift(frame_delay).fillna(0), \
-                                                         df_char[target_cols].shift(frame_delay).fillna(0), \
+        # NOTE frame delay convention: 0 frame delay means 'predict the next frame,' which means a shift of 1 is needed.
+        char_features_df, char_cmd_df, char_targets_df = df_char[feat_cols].shift(frame_delay+1).fillna(0), \
+                                                         df_char[target_cols].shift(frame_delay+1).fillna(0), \
                                                          df_char[target_cols]
 
-        opp_features_df, opp_cmd_df = df_opp[feat_cols].shift(frame_delay).fillna(0),\
-                                      df_opp[target_cols].shift(frame_delay).fillna(0)
+        opp_features_df, opp_cmd_df = df_opp[feat_cols].shift(frame_delay+1).fillna(0),\
+                                      df_opp[target_cols].shift(frame_delay+1).fillna(0)
 
         char_target_button_values_np = char_targets_df['pre_buttons'].to_numpy().reshape(-1)
         char_cmd_button_values_np = char_cmd_df['pre_buttons'].to_numpy().reshape(-1)
