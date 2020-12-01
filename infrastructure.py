@@ -24,7 +24,7 @@ class MeleeAI:
 
     def __init__(self):
         self.model = SSBM_MVP(100, 50)
-        self.model.load_state_dict(torch.load('./weights/ann_delay1_ep3.pth',  map_location=lambda storage, loc: storage))
+        # self.model.load_state_dict(torch.load('./weights/ann_delay1_ep3.pth',  map_location=lambda storage, loc: storage))
 
         # self.model = SSBM_LSTM_Prob(action_embedding_dim=100, button_embedding_dim=50, hidden_size=256, num_layers=3, bidirectional=True, dropout_p=0.2)
         # self.model.load_state_dict(torch.load('./weights/weights_lstm_action_head_delay_0_2020_11_18.pth',  map_location=lambda storage, loc: storage))
@@ -99,20 +99,21 @@ class MeleeAI:
 
 
     def parse_gamestate(self, gamestate):
-        frame = self.MeleeFrame(self.frameCount)
+        frame = self.MeleeFrame(gamestate.frame)
 
-        for i in gamestate.player:
+        i = 1
+        for player in gamestate.player:
 
             frame.ports.append(frame.Object())
             frame.ports[i - 1].leader = frame.Object()
             frame.ports[i - 1].leader.pre = frame.Object()
             frame.ports[i - 1].leader.post = frame.Object()
 
-            playerState = gamestate.player[i]
+            playerState = gamestate.player[player]
             controllerState = playerState.controller_state
 
             if self.frameCount == -1:
-                self.previousFacing[i - 1] = (playerState.x, playerState.y)
+                self.previousPosition[i - 1] = (playerState.x, playerState.y)
                 self.previousFacing[i - 1] = playerState.facing
                 self.previousDamage[i - 1] = playerState.percent
                 self.previousAction[i - 1] = playerState.action
@@ -169,6 +170,8 @@ class MeleeAI:
             self.previousDamage[i - 1] = playerState.percent
             self.previousAction[i - 1] = playerState.action
 
+            i += 1
+
         return frame
 
     def game_loop(self):
@@ -201,6 +204,7 @@ class MeleeAI:
 
             else:
                 self.controller.release_all()
+
 
 if __name__ == "__main__":
     agent = MeleeAI()
