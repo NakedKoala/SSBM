@@ -34,6 +34,7 @@ class MeleeAI:
 
         self.frames = []
 
+        self.previousPosition = [(0, 0), (0, 0)]
         self.previousDamage = [0, 0]
         self.previousFacing = [True, False]
         self.previousAction = [melee.enums.Action.UNKNOWN_ANIMATION, melee.enums.Action.UNKNOWN_ANIMATION]
@@ -54,7 +55,7 @@ class MeleeAI:
             "D_RIGHT": 2 ** 0
         }
 
-        self.console = melee.Console(path=DOLPHIN_EXE_PATH)
+        self.console = melee.Console(path=DOLPHIN_EXE_PATH, blocking_input=True)
         self.console.render = True
         self.controller = melee.Controller(self.console, 2)
         self.console.run()
@@ -71,7 +72,7 @@ class MeleeAI:
         print("Controller connected")
 
     def next_state(self):
-        print(time.time() - self.time)
+        # print(time.time() - self.time)
         self.time = time.time()
         return self.console.step()  # get frame data
 
@@ -90,19 +91,15 @@ class MeleeAI:
             else:
                 self.controller.release_button(button)
 
-        if commands["main_stick"][0] > 0.1 or commands["main_stick"][1] > 0.1:
-            print(commands)
-
         self.controller.press_shoulder(melee.enums.Button.BUTTON_L, commands["l_shoulder"] if commands["l_shoulder"] > 0 else 0)
         self.controller.press_shoulder(melee.enums.Button.BUTTON_R, commands["r_shoulder"] if commands["r_shoulder"] > 0 else 0)
+
         self.controller.tilt_analog_unit(melee.enums.Button.BUTTON_MAIN, commands["main_stick"][0], commands["main_stick"][1])
         self.controller.tilt_analog_unit(melee.enums.Button.BUTTON_C, commands["c_stick"][0], commands["c_stick"][1])
 
+
     def parse_gamestate(self, gamestate):
         frame = self.MeleeFrame(self.frameCount)
-
-        # pre_frame_dict = []
-        # post_frame_dict = []
 
         for i in gamestate.player:
 
@@ -115,21 +112,22 @@ class MeleeAI:
             controllerState = playerState.controller_state
 
             if self.frameCount == -1:
+                self.previousFacing[i - 1] = (playerState.x, playerState.y)
                 self.previousFacing[i - 1] = playerState.facing
                 self.previousDamage[i - 1] = playerState.percent
                 self.previousAction[i - 1] = playerState.action
 
             frame.ports[i - 1].leader.pre.position = frame.Object()
-            frame.ports[i - 1].leader.pre.position.x = playerState._prev_x
-            frame.ports[i - 1].leader.pre.position.y = playerState._prev_y
+            frame.ports[i - 1].leader.pre.position.x = self.previousPosition[i - 1][0]
+            frame.ports[i - 1].leader.pre.position.y = self.previousPosition[i - 1][1]
 
             frame.ports[i - 1].leader.pre.joystick = frame.Object()
             frame.ports[i - 1].leader.pre.joystick.x = (controllerState.main_stick[0] - 0.5) * 2
             frame.ports[i - 1].leader.pre.joystick.y = (controllerState.main_stick[1] - 0.5) * 2
 
             frame.ports[i - 1].leader.pre.cstick = frame.Object()
-            frame.ports[i - 1].leader.pre.cstick.x = controllerState.c_stick[0]
-            frame.ports[i - 1].leader.pre.cstick.y = controllerState.c_stick[1]
+            frame.ports[i - 1].leader.pre.cstick.x = (controllerState.c_stick[0] - 0.5) * 2
+            frame.ports[i - 1].leader.pre.cstick.y = (controllerState.c_stick[1] - 0.5) * 2
 
             frame.ports[i - 1].leader.pre.triggers = frame.Object()
             frame.ports[i - 1].leader.pre.triggers.physical = frame.Object()
@@ -145,7 +143,7 @@ class MeleeAI:
                     frame.ports[i - 1].leader.pre.buttons.physical.value += self.button_dict[button.value]
 
             frame.ports[i - 1].leader.pre.direction = 1 if self.previousFacing[i - 1] else -1
-            frame.ports[i - 1].leader.pre.damage = (self.previousDamage[i - 1], )
+            frame.ports[i - 1].leader.pre.damage = (self.previousDamage[i - 1],)
             frame.ports[i - 1].leader.pre.state = self.previousAction[i - 1].value
 
             frame.ports[i - 1].leader.post.character = playerState.character.value
@@ -166,6 +164,7 @@ class MeleeAI:
             frame.ports[i - 1].leader.post.state_age = playerState.action_frame
             frame.ports[i - 1].leader.post.state = playerState.action.value
 
+            self.previousPosition[i - 1] = (playerState.x, playerState.y)
             self.previousFacing[i - 1] = playerState.facing
             self.previousDamage[i - 1] = playerState.percent
             self.previousAction[i - 1] = playerState.action
