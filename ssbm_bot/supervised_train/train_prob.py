@@ -107,6 +107,8 @@ def train_eval_common_compute(model, batch, eval_behavior, compute_acc, device):
     ).to(device)
 
     features = features.to(device)
+    if recent_actions is not None:
+        recent_actions = recent_actions.to(device)
     # import pdb
     # pdb.set_trace()
 

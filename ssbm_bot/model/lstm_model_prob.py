@@ -98,9 +98,12 @@ class SSBM_LSTM_Prob(nn.Module):
             recent_btn_embed_feat = self.button_combination_embedding(recent_btn_indices)
             recent_actions_feat = torch.cat([recent_btn_embed_feat, recent_other], axis=-1).float()
 
+            # NOTE correct to send last hidden state to next lstm?
             lstm_output_2, (h_n2, c_n2) = self.LSTM2(recent_actions_feat, (h_n, c_n))
             lstm_output = torch.cat((lstm_output, lstm_output_2), dim=1)
-            h_n = torch.cat((h_n, h_n2), dim=1)
+            h_n = torch.cat((h_n, h_n2), dim=2)
+
+         import pdb; pdb.set_trace()
 
          if self.attention == False:
             lstm_representation = h_n
