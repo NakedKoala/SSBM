@@ -103,8 +103,6 @@ class SSBM_LSTM_Prob(nn.Module):
             lstm_output = torch.cat((lstm_output, lstm_output_2), dim=1)
             h_n = torch.cat((h_n, h_n2), dim=2)
 
-         import pdb; pdb.set_trace()
-
          if self.attention == False:
             lstm_representation = h_n
          else:
