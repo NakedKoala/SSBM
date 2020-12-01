@@ -84,7 +84,7 @@ def proc_button_press(buttons_values_np, button_press_indicator_dim, bitmap=Fals
 
         return button_targets_np
 
-def proc_df(df, char_id, opponent_id, frame_delay, button_press_indicator_dim, dist=True):
+def proc_df(df, char_id, opponent_id, frame_delay, button_press_indicator_dim, include_opp_input=True, dist=True):
 
 
         feat_cols = ['pre_state',  'post_state','pre_position_x', 'pre_position_y',  'post_position_x', 'post_position_y', \
@@ -103,12 +103,12 @@ def proc_df(df, char_id, opponent_id, frame_delay, button_press_indicator_dim, d
         df_opp = df[df['post_character'] == opponent_id]
 
         # NOTE frame delay convention: 0 frame delay means 'predict the next frame,' which means a shift of 1 is needed.
-        char_features_df, char_cmd_df, char_targets_df = df_char[feat_cols].shift(frame_delay+1).fillna(0), \
-                                                         df_char[target_cols].shift(frame_delay+1).fillna(0), \
-                                                         df_char[target_cols]
+        char_features_df, char_cmd_df, char_targets_df = df_char[feat_cols].shift(frame_delay).fillna(0), \
+                                                         df_char[target_cols].shift(frame_delay).fillna(0), \
+                                                         df_char[target_cols].shift(-1).fillna(0),
 
-        opp_features_df, opp_cmd_df = df_opp[feat_cols].shift(frame_delay+1).fillna(0),\
-                                      df_opp[target_cols].shift(frame_delay+1).fillna(0)
+        opp_features_df, opp_cmd_df = df_opp[feat_cols].shift(frame_delay).fillna(0),\
+                                      df_opp[target_cols].shift(frame_delay).fillna(0)
 
         char_target_button_values_np = char_targets_df['pre_buttons'].to_numpy().reshape(-1)
         char_cmd_button_values_np = char_cmd_df['pre_buttons'].to_numpy().reshape(-1)
@@ -119,22 +119,30 @@ def proc_df(df, char_id, opponent_id, frame_delay, button_press_indicator_dim, d
 
         if dist == True:
             char_target_button_targets_np = proc_button_press(char_target_button_values_np, button_press_indicator_dim)
+            recent_buttons_np = char_target_button_targets_np
         else:
+            recent_buttons_np = proc_button_press(char_target_button_values_np, button_press_indicator_dim)
             char_target_button_targets_np = proc_button_press(char_target_button_values_np, button_press_indicator_dim, bitmap=True)
         char_cmd_button_targets_np = proc_button_press(char_cmd_button_values_np, button_press_indicator_dim)
         opp_cmd_button_targets_np = proc_button_press(opp_cmd_button_values_np, button_press_indicator_dim)
 
-
-        features_np = np.concatenate([char_features_df.to_numpy()[:,0:2], char_cmd_button_targets_np.reshape(-1, 1),  \
-                                      opp_features_df.to_numpy()[:,0:2],  opp_cmd_button_targets_np.reshape(-1, 1), \
-                                      char_features_df.to_numpy()[:,2:], opp_features_df.to_numpy()[:,2:]], axis=1)
 
         # TODO model is currently fed in opponent controller inputs.
         # This might be regarded as cheating from human POV, so we should
         # consider removing opponent controller input from features in the future.
         # Ideally, the model will still be able to tell what the opponent is doing
         # by looking at position + action state + state age
-        features_np = np.concatenate([features_np, char_cmd_df.to_numpy(), opp_cmd_df.to_numpy()], axis=1)
+        features_list = [char_features_df.to_numpy()[:,0:2], char_cmd_button_targets_np.reshape(-1, 1), \
+            opp_features_df.to_numpy()[:,0:2]]
+        if include_opp_input:
+            features_list.append(opp_cmd_button_targets_np.reshape(-1, 1))
+        features_list.extend([
+            char_features_df.to_numpy()[:,2:], opp_features_df.to_numpy()[:,2:], \
+            char_cmd_df.to_numpy()
+        ])
+        if include_opp_input:
+            features_list.append(opp_cmd_df.to_numpy())
+        features_np = np.concatenate(features_list, axis=1)
 
         # scaler = StandardScaler()
         # features_np[:,4:] = scaler.fit_transform(features_np[:,4:])
@@ -145,19 +153,25 @@ def proc_df(df, char_id, opponent_id, frame_delay, button_press_indicator_dim, d
         # features_np = np.concatenate([features_np, char_cmd_button_targets_np, opp_cmd_button_targets_np], axis=1)
 
         cts_targets_np = char_targets_df.to_numpy()
+        recent_actions_np = np.concatenate([
+            recent_buttons_np.reshape(-1, 1), cts_targets_np
+        ], axis=1)
 
 
         features_tensor, cts_targets_tensor, char_button_targets_tensor = torch.from_numpy(features_np), torch.from_numpy(cts_targets_np), torch.from_numpy(char_target_button_targets_np)
         features_tensor[:,6:] = scale(features_tensor[:,6:])
+        recent_actions_tensor = torch.from_numpy(recent_actions_np)
         # import pdb
         # pdb.set_trace()
         assert(features_tensor.shape[1] == 17 * 2 + 7 * 2)
         assert(cts_targets_tensor.shape[1] == 6)
+        assert(recent_actions_tensor.shape[1] == 6 + 1)
         # assert(char_button_targets_tensor.shape[1] == 5)
 
         # import pdb
         # pdb.set_trace()
-        return features_tensor.float(), cts_targets_tensor.float(),  char_button_targets_tensor.float()
+        return features_tensor.float(), cts_targets_tensor.float(),  char_button_targets_tensor.float(), \
+            recent_actions_tensor.float()
 
 def _fix_align_queue(align_queue, window_size, tensor_shape):
     for _ in range(window_size - len(align_queue)):

@@ -24,22 +24,24 @@ class SSBMDataset(Dataset):
 
     val_ratio = 0.2
     button_press_indicator_dim = 12
-    def __init__(self, src_dir, char_id, opponent_id, device, window_size=0, frame_delay=15, ds_type=None):
+    def __init__(self, src_dir, char_id, opponent_id, device, window_size=0, frame_delay=15, output_recent_actions=False, ds_type=None):
         torch.manual_seed(0)
         self.csv_files = [ os.path.join(src_dir, fname) for fname in os.listdir(src_dir) if '.csv' in fname]
         self.features_per_game = []
         self.frame_splits = [0]
         self.cts_targets = []
         self.bin_cls_targets = []
+        self.recent_actions = []
         self.window_size = window_size
         self.frame_delay = frame_delay
+        self.output_recent_actions=output_recent_actions
         self.device = device
 
 
         for csv_path in tqdm(self.csv_files, position=0, leave=True):
             try:
                 df = pd.read_csv(csv_path, index_col="frame_index")
-                features, cts_targets, bin_cls_targets = proc_df(df, char_id, opponent_id, self.frame_delay, SSBMDataset.button_press_indicator_dim)
+                features, cts_targets, bin_cls_targets, recent_actions = proc_df(df, char_id, opponent_id, self.frame_delay, SSBMDataset.button_press_indicator_dim)
 
                 self.features_per_game.append(features)
                 # prefix sum on frame_splits for indexing
@@ -47,6 +49,7 @@ class SSBMDataset(Dataset):
 
                 self.cts_targets.append(cts_targets)
                 self.bin_cls_targets.append(bin_cls_targets)
+                self.recent_actions.append(recent_actions)
 
                 if ds_type == 'dev' and self.frame_splits[-1] > 1000:
                     break
@@ -56,6 +59,7 @@ class SSBMDataset(Dataset):
 
         self.cts_targets = torch.cat(self.cts_targets, dim=0)
         self.bin_cls_targets = torch.cat(self.bin_cls_targets, dim=0)
+        self.recent_actions = torch.cat(self.recent_actions, dim=0)
         # import pdb
         # pdb.set_trace()
 
@@ -65,6 +69,7 @@ class SSBMDataset(Dataset):
 
         self.cts_targets =  self.cts_targets.to(device)
         self.bin_cls_targets =  self.bin_cls_targets.to(device)
+        self.recent_actions = self.recent_actions.to(device)
 
         if ds_type == 'dev':
             max_frames = 1000
@@ -76,8 +81,9 @@ class SSBMDataset(Dataset):
                 max_frame_idx = max_frames - self.frame_splits[-1]
                 self.frame_splits.append(max_frames)
                 self.features_per_game[max_game_idx] = self.features_per_game[max_game_idx][:max_frame_idx]
-            self.cts_targets = self.cts_targets[:1000]
-            self.bin_cls_targets = self.bin_cls_targets[:1000]
+            self.cts_targets = self.cts_targets[:max_frames]
+            self.bin_cls_targets = self.bin_cls_targets[:max_frames]
+            self.recent_actions = self.recent_actions[:max_frames]
 
     def __len__(self):
         return self.frame_splits[-1]
@@ -92,7 +98,22 @@ class SSBMDataset(Dataset):
         frame_idx = idx - self.frame_splits[game_idx]
         first_frame = max(0, frame_idx - self.window_size + 1)
         frame_features = self.features_per_game[game_idx][first_frame:frame_idx + 1]
+
+        import pdb; pdb.set_trace()
+        recent_actions = []
+        if self.frame_delay > 0:
+            first_recent_action_idx = idx - self.frame_delay
+            if frame_idx - self.frame_delay < 0:
+                for _ in range(self.frame_delay - frame_idx):
+                    recent_actions.append(torch.unsqueeze(torch.zeros_like(self.recent_actions[0]), 0))
+                first_recent_action_idx = idx - frame_idx
+            recent_actions.append(self.recent_actions[first_recent_action_idx:idx])
+            recent_actions = torch.cat(recent_actions)
+        else:
+            recent_actions = None
+
         # at least one frame must exist
+        output = ()
         if self.window_size > 1:
             assert(frame_features.shape[0] > 0)
             if frame_features.shape[0] < self.window_size:
@@ -104,10 +125,13 @@ class SSBMDataset(Dataset):
                 features_list.append(frame_features)
                 frame_features = torch.cat(features_list)
 
-            return frame_features, self.cts_targets[idx], self.bin_cls_targets[idx]
+            output = (frame_features, self.cts_targets[idx], self.bin_cls_targets[idx])
         else:
             # import pdb
             # pdb.set_trace()
-            return frame_features.squeeze(0), self.cts_targets[idx], self.bin_cls_targets[idx]
+            output = ( frame_features.squeeze(0), self.cts_targets[idx], self.bin_cls_targets[idx])
 
+        if self.output_recent_actions:
+            output = output + (recent_actions,)
 
+        return output
