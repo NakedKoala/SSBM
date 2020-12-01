@@ -118,7 +118,7 @@ def train_loop(
                 next_state = next_state.to(device)
             done = (next_state is None)
 
-            loss = trainer.optimize(optimizer, done, next_state, states_t, actions_t, rewards, 0.99)
+            loss = trainer.optimize(optimizer, done, next_state, states_t, actions_t, rewards, 0.9)
             if avg_loss is None:
                 avg_loss = loss
             else:

@@ -13,6 +13,7 @@ from ..model.action_head import ActionHead
 
 from collections import deque
 from itertools import islice
+import random
 import time
 
 def _check_model_updates(model, param_socket, block=False):
@@ -22,9 +23,11 @@ def _check_model_updates(model, param_socket, block=False):
         model.load_state_dict(new_model_state)
 
 
+# TODO should add parallelism to running adversary/trainer models.
 _REWARD_MOVING_AVG_FACTOR = 0.95
 def run_loop(
     trainer,                        # A3CTrainer with uninitialized actor-critic model
+    adversary,                      # like `trainer`
     environment,                    # SSBM environment to train on
     trainer_ip,                     # IP address of the trainer
     exp_port,                       # port for experience socket
@@ -36,12 +39,16 @@ def run_loop(
     output_reward_every=None,       # frequency (frames) of outputting reward
     output_eps_every=None,          # frequency (episodes) of ouputting total stats
     max_episodes=None,              # maximum number of episodes
+    max_old_agents=10,              # maximum number of old agents
+    save_agent_every=5,             # frequency (episodes) of saving the current agent as an adversary
 ):
     # NOTE frame_delay is currently unused, but once we send recent
     # actions to the model as part of input, we will need frame_delay
 
     exp_socket = PushSocket(trainer_ip, exp_port)
     param_socket = SubSocket(trainer_ip, param_port)
+
+    old_agents = []
 
     cur_eps = 1
     avg_reward = None
@@ -52,6 +59,12 @@ def run_loop(
 
         # wait for latest model before starting the episode
         _check_model_updates(trainer.model, param_socket, block=True)
+        if len(old_agents) == 0:
+            old_agents.append(trainer.model.state_dict())
+
+        # initialize adversary
+        model_dict = old_agents[random.randrange(len(old_agents))]
+        adversary.model.load_state_dict(model_dict)
 
         cur_frame = 1
         stale_state_buffer = deque()
@@ -73,10 +86,11 @@ def run_loop(
             print("runner start episode", cur_eps)
         while True:
             action = trainer.choose_action(cur_state_t, ActionHead.DEFAULT)
+            adversary_action = adversary.choose_action(cur_state_t, ActionHead.DEFAULT)
             # exp processor expects batch dimension
             actions_buffer.append(action)
             # unwrap batch dimension for environment
-            cur_state, reward, done = environment.step(action[0])
+            cur_state, reward, done = environment.step((action[0], adversary_action[0]))
             episode_reward += reward
             rewards_buffer.append(reward)
 
@@ -143,5 +157,12 @@ def run_loop(
             print("runner done episode", cur_eps)
             print("runner got reward", episode_reward)
             print("runner reward moving average", avg_reward)
+
+        if save_agent_every is not None and cur_eps % save_agent_every == 0:
+            if len(old_agents) < max_old_agents:
+                old_agents.append(trainer.model.state_dict())
+            else:
+                replace_idx = random.randrange(1, len(old_agents))
+                old_agents[replace_idx] = trainer.model.state_dict()
 
         cur_eps += 1

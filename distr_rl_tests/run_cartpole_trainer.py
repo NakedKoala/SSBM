@@ -6,7 +6,7 @@ import torch
 
 if __name__ == '__main__':
     model = CartPoleModel()
-    optim = torch.optim.Adam(model.parameters(), lr=1e-4)
+    optim = torch.optim.Adam(model.parameters(), lr=5e-5)
     train_loop(
         trainer=A3CTrainer(model),
         optimizer=optim,
@@ -15,8 +15,8 @@ if __name__ == '__main__':
         exp_process_port=50002,
         window_size=1,
         save_path='./test.pt',
-        send_param_every=0,
-        output_loss_every=5,
+        send_param_every=0.01,
+        output_loss_every=200,
         max_steps=None,
         save_every=None,
         spawn_proc=True,

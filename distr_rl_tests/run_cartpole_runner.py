@@ -7,17 +7,19 @@ import sys
 
 if __name__ == '__main__':
     model = CartPoleModel()
+    adv_model = CartPoleModel()
     environment = CartPoleEnvironment()
     run_loop(
         trainer=A3CTrainer(model),
+        adversary=A3CTrainer(adv_model),
         environment=environment,
         trainer_ip=None,
         exp_port=50000,
         param_port=50001,
         window_size=1,
         frame_delay=0,
-        send_exp_every=300,
-        check_model_upd_every=5,
-        output_eps_every=20,
+        send_exp_every=5,
+        check_model_upd_every=0.001,
+        output_eps_every=50,
         max_episodes=None,
     )

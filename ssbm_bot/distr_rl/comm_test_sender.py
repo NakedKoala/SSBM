@@ -1,4 +1,4 @@
-import communication
+from . import communication
 
 import time
 
