@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
-from torch.nn import Embedding, Linear, MSELoss, CrossEntropyLoss, Dropout, LSTM
-from torch.nn.functional import relu,tanh
+from torch.nn import Embedding, Linear, MSELoss, CrossEntropyLoss, Dropout, LSTM, ReLU, Sequential
 import pandas as pd
 from torch.utils.data import DataLoader
 import pdb
@@ -14,30 +13,65 @@ class SSBM_LSTM_Prob(nn.Module):
      input_dim = 48
      cts_out_dim = 6
      logit_out_dim = 32
+     recent_actions_dim = 7
      num_embedding_features = 6
-     def __init__(self, action_embedding_dim, button_embedding_dim, hidden_size = 256, num_layers = 1, bidirectional=False, dropout_p=0.2, attention=False, **kwargs):
+     def __init__(self, action_embedding_dim, hidden_size = 256, num_layers = 1, bidirectional=False, dropout_p=0.2,
+                  attention=False, recent_actions=False, value_hidden_sizes = [256, 128],
+                  **kwargs):
             super().__init__()
 
-            self.action_state_embedding = Embedding(num_embeddings=self.action_state_dim, \
-                                                    embedding_dim=action_embedding_dim)
-            self.button_combination_embedding = Embedding(num_embeddings=self.button_combination_dim, \
-                                                    embedding_dim=button_embedding_dim)
-            self.in_features_dim = (self.input_dim - self.num_embedding_features) +  (4 * action_embedding_dim + 2 * button_embedding_dim)
+            self.recent_actions = recent_actions
+
             if bidirectional == True:
                self.num_directions = 2
             else:
                self.num_directions = 1
+
+            if recent_actions:
+                self.lstm_out_size = hidden_size * 2
+            else:
+                self.lstm_out_size = hidden_size
+
+            self.action_head = ActionHead(self.lstm_out_size * self.num_directions, **kwargs)
+
+            self.action_state_embedding = Embedding(num_embeddings=self.action_state_dim, \
+                                                    embedding_dim=action_embedding_dim)
+            # share embedding with action head
+            self.button_combination_embedding = self.action_head.output_emb_layers[0]
+            button_embedding_dim = self.button_combination_embedding.embedding_dim
+
+            self.in_features_dim = (self.input_dim - self.num_embedding_features) +  (4 * action_embedding_dim + 2 * button_embedding_dim)
             self.num_layers = num_layers
-            self.hidden_size = hidden_size
             # import pdb
             # pdb.set_trace()
             self.LSTM = LSTM(input_size = self.in_features_dim, hidden_size= hidden_size, num_layers=num_layers, batch_first=True, bidirectional=bidirectional)
-            self.attention_proj = Linear(in_features=hidden_size * self.num_directions, out_features=hidden_size * self.num_directions)
+
+            # for recent actions
+            lstm2_in_dim = (self.recent_actions_dim - 1) + button_embedding_dim
+            self.LSTM2 = LSTM(input_size=lstm2_in_dim, hidden_size=hidden_size, num_layers=num_layers, batch_first=True, bidirectional=bidirectional)
+
+            self.attention_proj = Linear(in_features=self.lstm_out_size * self.num_directions, out_features=self.lstm_out_size * self.num_directions)
             self.dropout = Dropout(p=dropout_p)
-            self.action_head = ActionHead(hidden_size * self.num_directions, **kwargs)
             self.attention = attention
 
+            # create value head
+            value_hidden_layers = []
+            last_in_size = self.lstm_out_size * self.num_directions
+            for v_hidden_size in value_hidden_sizes:
+                value_hidden_layers.extend((
+                    Linear(in_features=last_in_size, out_features=v_hidden_size),
+                    ReLU(),
+                    Dropout(p=0.2)
+                ))
+                last_in_size = v_hidden_size
+
+            value_hidden_layers.append(
+                Linear(in_features=value_hidden_sizes[-1], out_features=1)
+            )
+            self.value_head = Sequential(*value_hidden_layers)
+
      def forward(self, x, forced_action=None, behavior=2):
+         x, recent_actions = x
          # x -> (batch, seq_len, feat_dim)
 
          batch_size = x.shape[0]
@@ -57,9 +91,21 @@ class SSBM_LSTM_Prob(nn.Module):
          assert(features.shape == (batch_size, seq_len, self.in_features_dim))
          # hn -> (1, batch, hidden_dim)
          lstm_output, (h_n, c_n) = self.LSTM(features)
+
+         if self.recent_actions and recent_actions is not None:
+            # recent_actions_seq_len = recent_actions.shape[1]
+            recent_btn_indices, recent_other = recent_actions[:,:,0].long(), recent_actions[:,:,1:]
+            recent_btn_embed_feat = self.button_combination_embedding(recent_btn_indices)
+            recent_actions_feat = torch.cat([recent_btn_embed_feat, recent_other], axis=-1).float()
+
+            lstm_output_2, (h_n2, c_n2) = self.LSTM2(recent_actions_feat, (h_n, c_n))
+            lstm_output = torch.cat((lstm_output, lstm_output_2), dim=1)
+            h_n = torch.cat((h_n, h_n2), dim=1)
+
          if self.attention == False:
             lstm_representation = h_n
          else:
+            # NOTE broken.
             lstm_output_proj = self.attention_proj(lstm_output)
             # (batch, seq_len, hidden * num_layer)
             attention_logits = torch.squeeze(torch.bmm(input=lstm_output_proj, mat2=torch.unsqueeze(torch.squeeze(h_n, dim=0), dim=-1)), dim=-1)
@@ -68,7 +114,7 @@ class SSBM_LSTM_Prob(nn.Module):
             # (batch, hidden * num_layer )
             lstm_representation = combined_hidden
 
-         lstm_representation = lstm_representation.view(self.num_layers, self.num_directions, batch_size, self.hidden_size)
+         lstm_representation = lstm_representation.view(self.num_layers, self.num_directions, batch_size, self.lstm_out_size)
          lstm_representation = lstm_representation[-1]
          o = lstm_representation.permute(1, 0, 2).reshape(batch_size, -1)
 
@@ -76,7 +122,8 @@ class SSBM_LSTM_Prob(nn.Module):
         #  import pdb
         #  pdb.set_trace()
          logits, choices = self.action_head(o, forced_action=forced_action, behavior=behavior)
-         value = torch.zeros(batch_size, 1).to(x.device)
+
+         value = self.value_head(o)
 
          return logits, choices, value
 

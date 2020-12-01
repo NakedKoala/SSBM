@@ -99,7 +99,6 @@ class SSBMDataset(Dataset):
         first_frame = max(0, frame_idx - self.window_size + 1)
         frame_features = self.features_per_game[game_idx][first_frame:frame_idx + 1]
 
-        import pdb; pdb.set_trace()
         recent_actions = []
         if self.frame_delay > 0:
             first_recent_action_idx = idx - self.frame_delay

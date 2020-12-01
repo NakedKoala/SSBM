@@ -93,7 +93,11 @@ def convert_idx_to_one_hot(indices_t):
 
 
 def train_eval_common_compute(model, batch, eval_behavior, compute_acc, device):
-    features, cts_targets, button_targets = batch
+    if len(batch) == 3:
+        features, cts_targets, button_targets = batch
+        recent_actions = None
+    else:
+        features, cts_targets, button_targets, recent_actions = batch
 
     cts_idx = convert_cts_to_idx(cts_targets)
     all_targets = (button_targets.long(),) + cts_idx
@@ -109,7 +113,7 @@ def train_eval_common_compute(model, batch, eval_behavior, compute_acc, device):
     # generate accuracy
     if compute_acc:
         with torch.no_grad():
-            _, choices, _ = model(features, behavior=eval_behavior)
+            _, choices, _ = model((features, recent_actions), behavior=eval_behavior)
             # was the model's choices correct?
             choices = choices.to(button_targets.device) # assume button/cts_targets on the same device
             c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger = get_correct(
@@ -126,7 +130,7 @@ def train_eval_common_compute(model, batch, eval_behavior, compute_acc, device):
         c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger = (0,) * 6
 
     # generate loss
-    action_logits, _, _ = model(features, forced_action=forced_action)
+    action_logits, _, _ = model((features, recent_actions), forced_action=forced_action)
     loss = torch.zeros(1).to(device)
     for logits, target in zip(action_logits, all_targets):
         loss += cross_entropy(logits, target.to(device))

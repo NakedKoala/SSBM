@@ -29,34 +29,36 @@ class ActionHead(nn.Module):
                      [16, 16], # cstick fine
                      [128, 128], # cstick magn
                      [256, 128], # trigger
-                 ]):
-            super().__init__()
+                 ],
+                 buttons_emb=None
+    ):
+        super().__init__()
 
-            assert(len(out_embedding_dims) == len(out_output_sizes) == len(out_hidden_sizes))
-            # save for reference only
-            self.out_output_sizes = out_output_sizes
-            # regular list won't register layers properly
-            self.output_emb_layers = ModuleList()
-            self.output_lin_layers = ModuleList()
-            total_in_size = in_features
-            # connect linear layers and embedding layers together
-            for emb_dim, out_size, hidden_sizes in zip(out_embedding_dims, out_output_sizes, out_hidden_sizes):
-                self.output_emb_layers.append(
-                    Embedding(num_embeddings=out_size, embedding_dim=emb_dim)
-                ) # NOTE: we don't actually use the last embedding layer
-                last_in_size = total_in_size
-                hidden_layers = []
-                for size in hidden_sizes:
-                    hidden_layers.extend((
-                        Linear(in_features=last_in_size, out_features=size),
-                        ReLU(),
-                        Dropout(p=0.2)
-                    ))
-                    last_in_size = size
-                hidden_layers.append(Linear(in_features=last_in_size, out_features=out_size))
+        assert(len(out_embedding_dims) == len(out_output_sizes) == len(out_hidden_sizes))
+        # save for reference only
+        self.out_output_sizes = out_output_sizes
+        # regular list won't register layers properly
+        self.output_emb_layers = ModuleList()
+        self.output_lin_layers = ModuleList()
+        total_in_size = in_features
+        # connect linear layers and embedding layers together
+        for emb_dim, out_size, hidden_sizes in zip(out_embedding_dims, out_output_sizes, out_hidden_sizes):
+            self.output_emb_layers.append(
+                Embedding(num_embeddings=out_size, embedding_dim=emb_dim)
+            ) # NOTE: we don't actually use the last embedding layer
+            last_in_size = total_in_size
+            hidden_layers = []
+            for size in hidden_sizes:
+                hidden_layers.extend((
+                    Linear(in_features=last_in_size, out_features=size),
+                    ReLU(),
+                    Dropout(p=0.2)
+                ))
+                last_in_size = size
+            hidden_layers.append(Linear(in_features=last_in_size, out_features=out_size))
 
-                self.output_lin_layers.append(Sequential(*hidden_layers))
-                total_in_size += emb_dim
+            self.output_lin_layers.append(Sequential(*hidden_layers))
+            total_in_size += emb_dim
 
 
     DEFAULT = 0 # choose action based on probability logits
