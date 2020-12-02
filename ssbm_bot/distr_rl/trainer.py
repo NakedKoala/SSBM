@@ -7,10 +7,10 @@
 
 from .a3c import A3CTrainer
 from .communication import *
+from .input_manager import InputManager
 from .payloads import ProcExpPayload
 from ..data.common_parsing_logic import align
 
-from collections import deque
 import multiprocessing as mp
 import time
 import sys
@@ -21,6 +21,7 @@ def process_exps_loop(
     exp_port,
     return_port,
     window_size,
+    frame_delay,
 ):
     exp_socket = PullSocket(None, exp_port, bind=True)
     process_exp_socket = PushSocket(None, return_port)
@@ -31,8 +32,6 @@ def process_exps_loop(
         experiences = exp_socket.recv()
         # print("process_exp received payload")
 
-        state_queue = deque(experiences.init_states)
-        # input_queue = experiences.init_inputs
         if len(state_queue) != window_size-1:
             sys.stderr.write("process_exp received payload with initial state "
                              "length != window_size-1. Skipping.\n")
@@ -45,12 +44,23 @@ def process_exps_loop(
                              "lengths. Skipping.\n")
             continue
 
+        input_manager = InputManager(window_size, frame_delay)
+        for state in experiences.init_states:
+            input_manager.get(state, None)
+
         states_inputs = []
+        action_inputs = []
         for i in range(len(experiences.states)):
-            states_inputs.append(align(state_queue, window_size, experiences.states[i]))
+            if i > 0:
+                state_t, action_t = input_manager.get(experiences.states[i], experiences.actions[i-1])
+            else:
+                state_t, action_t = input_manager.get(experiences.states[i], None)
+            states_inputs.append(state_t)
+            action_inputs.append(action_t)
 
         payload = ProcExpPayload(
             states_input=torch.stack(states_inputs),
+            action_input=torch.stack(action_inputs),
             final_state=experiences.final_state,
             actions=torch.cat(experiences.actions, dim=0),
             rewards=experiences.rewards
@@ -70,6 +80,7 @@ def train_loop(
     param_port,             # port for parameters socket
     exp_process_port,       # port for experience processing socket
     window_size,            # window size of full game state
+    frame_delay,            # frame delay between state occurrence and observation
     save_path,              # location to save weights
     send_param_every=10,    # frequency of sending parameters to runners, in seconds.
     max_steps=None,         # maximum number of batches to train on
@@ -89,6 +100,7 @@ def train_loop(
             exp_port,
             exp_process_port,
             window_size,
+            frame_delay,
         ), daemon=True)
         process_exps_proc.start()
 

@@ -5,4 +5,5 @@ if __name__ == '__main__':
         exp_port=50000,
         return_port=50002,
         window_size=15,
+        frame_delay=5,
     )

@@ -20,10 +20,25 @@ ExpPayload = namedtuple(
 ProcExpPayload = namedtuple(
     'ProcExpPayload',
     [
-        'states_input',      # delayed windows of full game states
-        # 'action_input',    # recent model actions between delay and current time
+        'states_input',     # delayed windows of full game states
+        'action_input',     # recent model actions between delay and current time
         'final_state',      # same as in ExpPayload
         'actions',          # same as in ExpPayload
         'rewards',          # same as in ExpPayload
+    ]
+)
+
+AdversaryParamPayload = namedtuple(
+    'AdversaryParamPayload',
+    [
+        'state_dict',       # parameters for the model to use
+    ]
+)
+
+AdversaryInputPayload = namedtuple(
+    'AdversaryInputPayload',
+    [
+        'state',            # state input for the adversary to process
+        'behavior',         # action head behavior to use
     ]
 )

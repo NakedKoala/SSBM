@@ -11,11 +11,11 @@ if __name__ == '__main__':
     environment = CartPoleEnvironment()
     run_loop(
         trainer=A3CTrainer(model),
-        adversary=A3CTrainer(adv_model),
         environment=environment,
         trainer_ip=None,
         exp_port=50000,
         param_port=50001,
+        adversary_port=50003,
         window_size=1,
         frame_delay=0,
         send_exp_every=5,

@@ -17,6 +17,7 @@ if __name__ == '__main__':
         param_port=50001,
         exp_process_port=50002,
         window_size=15,
+        frame_delay=5,
         save_path='./test.pt',
         send_param_every=10,
         output_loss_every=5,

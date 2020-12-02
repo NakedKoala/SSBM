@@ -5,14 +5,16 @@
 #   - every number of frames, sends experiences to the trainer
 #   - every number of frames, checks for model update (might not occur)
 
+from .adversary import adversary_loop
 from .communication import *
-from .payloads import ExpPayload
+from .payloads import ExpPayload, AdversaryParamPayload, AdversaryTerminatePayload
 
 from ..data.common_parsing_logic import align
 from ..model.action_head import ActionHead
 
 from collections import deque
 from itertools import islice
+import multiprocessing as mp
 import random
 import time
 
@@ -23,15 +25,14 @@ def _check_model_updates(model, param_socket, block=False):
         model.load_state_dict(new_model_state)
 
 
-# TODO should add parallelism to running adversary/trainer models.
 _REWARD_MOVING_AVG_FACTOR = 0.95
 def run_loop(
     trainer,                        # A3CTrainer with uninitialized actor-critic model
-    adversary,                      # like `trainer`
     environment,                    # SSBM environment to train on
     trainer_ip,                     # IP address of the trainer
     exp_port,                       # port for experience socket
     param_port,                     # port for parameters socket
+    adversary_port,                 # port for adversary socket
     window_size,
     frame_delay,
     send_exp_every,                 # frequency (frames) of sending experiences
@@ -42,11 +43,22 @@ def run_loop(
     max_old_agents=10,              # maximum number of old agents
     save_agent_every=5,             # frequency (episodes) of saving the current agent as an adversary
 ):
-    # NOTE frame_delay is currently unused, but once we send recent
-    # actions to the model as part of input, we will need frame_delay
-
     exp_socket = PushSocket(trainer_ip, exp_port)
     param_socket = SubSocket(trainer_ip, param_port)
+
+    # initialize adversary
+    adversary_socket = PairSocket(None, adversary_port, bind=True)
+    adversary_proc = mp.Process(
+        target=adversary_loop,
+        args=(
+            adversary_port,
+            window_size,
+            frame_delay
+        ),
+        daemon=True
+    )
+    adversary_proc.start()
+    adversary_socket.send(trainer.model, block=False)
 
     old_agents = []
 
@@ -64,41 +76,51 @@ def run_loop(
 
         # initialize adversary
         model_dict = old_agents[random.randrange(len(old_agents))]
-        adversary.model.load_state_dict(model_dict)
+        adversary_socket.send(AdversaryParamPayload(state_dict=model_dict), block=False)
 
         cur_frame = 1
+        input_manager = InputManager(window_size, frame_delay)
         stale_state_buffer = deque()
-        stale_state_align = deque()
         actions_buffer = deque()
         rewards_buffer = deque()
         episode_reward = 0.0
 
-        cur_state = environment.reset()
-        # wrap in batch dimension
-        cur_state_t = align(stale_state_align, window_size, cur_state).unsqueeze(dim=0)
+        cur_state, adv_state = environment.reset()
 
         # add the first window_size-1 zero states for payload init_state.
         # also include the first real state.
         stale_state_buffer.extend(stale_state_align)
+        for _ in range(window_size - 1):
+            stale_state_buffer.append(torch.zeros_like(cur_state))
+        stale_state_buffer.append(cur_state)
 
         # run the entire episode to completion
         if output_eps_every is None or cur_eps % output_eps_every == 0:
             print("runner start episode", cur_eps)
         while True:
-            action = trainer.choose_action(cur_state_t, ActionHead.DEFAULT)
-            adversary_action = adversary.choose_action(cur_state_t, ActionHead.DEFAULT)
-            # exp processor expects batch dimension
+            # tell adversary to get action
+            adversary_socket.send(AdversaryInputPayload(
+                state=adv_state,
+                behavior=ActionHead.DEFAULT,
+            ), block=False)
+
+            # get runner action
+            last_action = None if len(actions_buffer) == 0 else actions_buffer[-1]
+            state_t, action_t = input_manager.get(cur_state, last_action)
+            action = trainer.choose_action((state_t, action_t), ActionHead.DEFAULT)
+            # experience processor expects batch dimension - don't reshape
             actions_buffer.append(action)
+
+            # wait for adversary to finish
+            adversary_action = adversary_socket.recv()
+
             # unwrap batch dimension for environment
-            cur_state, reward, done = environment.step((action[0], adversary_action[0]))
+            cur_state, adv_state, reward, done = environment.step((action[0], adversary_action[0]))
             episode_reward += reward
             rewards_buffer.append(reward)
 
             if output_reward_every and cur_frame % output_reward_every == 0:
                 print("episode:", cur_eps, "frame:", cur_frame, "reward:", episode_reward)
-
-            # state tensor for next frame
-            cur_state_t = align(stale_state_align, window_size, cur_state).unsqueeze(dim=0)
 
             if done or cur_frame % send_exp_every == 0:
                 stale_states = list(islice(

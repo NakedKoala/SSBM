@@ -11,28 +11,25 @@ class A3CTrainer(nn.Module):
 
     def forward(
         self,
-        stale_state,
-        # recent_input,
+        inputs,
         forced_action=None,
         behavior=ActionHead.DEFAULT
     ):
         return self.model(
-            stale_state, # recent_input,
+            inputs,
             forced_action=forced_action,
             behavior=behavior
         )
 
-    def choose_action(self, stale_state, behavior):
+    def choose_action(self, inputs, behavior):
         self.eval()
-        # could add exploration strategy here...
-        # or in the runner
-        _, choices, _ = self.forward(stale_state, behavior=behavior)
+        _, choices, _ = self.forward(inputs, behavior=behavior)
         return choices
 
-    def loss_func(self, stale_state, action, returns):
+    def loss_func(self, inputs, action, returns):
         self.train()
-        batch_size = stale_state.shape[0]
-        logits, _, values = self.forward(stale_state, forced_action=action)
+        batch_size = inputs[0].shape[0]
+        logits, _, values = self.forward(inputs, forced_action=action)
         td = returns - values
         critic_loss = td.pow(2)
 
@@ -47,12 +44,12 @@ class A3CTrainer(nn.Module):
 
         return total_loss
 
-    def optimize(self, optimizer, done_episode, next_state, stale_states, actions, rewards, gamma):
+    def optimize(self, optimizer, done_episode, next_state, inputs, actions, rewards, gamma):
         if done_episode:
             value_est = 0
         else:
             # bootstrap
-            last_state_input = stale_states[-1]
+            last_state_input = inputs[0][-1]
             next_input = torch.cat((last_state_input[1:], next_state.unsqueeze(dim=0)), dim=0).unsqueeze(dim=0)
             value_est = self.model.forward(next_input)[-1][0].item()
 
@@ -61,10 +58,10 @@ class A3CTrainer(nn.Module):
             value_est = rwd + gamma * value_est
             returns.append(value_est)
         returns.reverse()
-        returns = torch.Tensor(returns).to(stale_states.device)
+        returns = torch.Tensor(returns).to(inputs[0].device)
         # returns = (returns - returns.mean()) / (returns.std() + 1e-5)
 
-        loss = self.loss_func(stale_states, actions, returns)
+        loss = self.loss_func(inputs, actions, returns)
 
         # sometimes adjust gradient randomly for exploration?
         optimizer.zero_grad()

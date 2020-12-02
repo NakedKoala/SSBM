@@ -12,6 +12,8 @@ class CartPoleModel(nn.Module):
 
     # absorb kwargs since other models might use it
     def forward(self, x, **kwargs):
+        # second input is 'recent actions'
+        x = x[0]
         # get rid of timestep dimension
         x = x.squeeze(dim=1)
         x = F.relu(self.affine1(x))
