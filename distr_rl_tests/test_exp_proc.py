@@ -1,4 +1,4 @@
-import trainer
+from ssbm_bot.distr_rl import trainer
 
 if __name__ == '__main__':
     trainer.process_exps_loop(

@@ -1,11 +1,12 @@
-from . import communication
+from ssbm_bot.distr_rl import communication
 
 import time
 
-sub_socket = communication.PullSocket(None, 50002)
+sub_socket = communication.PairSocket(None, 50002)
 
 # time.sleep(10)
-print(sub_socket.recv(block=False))
+print(sub_socket.recv(block=True))
+sub_socket.send(1)
 # time.sleep(5)
 # print(sub_socket.recv(block=False))
 

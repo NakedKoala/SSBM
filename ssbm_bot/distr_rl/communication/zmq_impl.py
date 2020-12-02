@@ -2,7 +2,7 @@ from .communication import *
 
 import zmq
 
-class ZMQSendSocket(SendSocketBase):
+class ZMQSocketBase():
     def __init__(self, address, port, socket_type, bind=False, socket_opts=None):
         self.context = zmq.Context()
         self.socket = self.context.socket(socket_type)
@@ -18,6 +18,10 @@ class ZMQSendSocket(SendSocketBase):
             self.socket.bind(full_addr)
         else:
             self.socket.connect(full_addr)
+
+class ZMQSendSocket(ZMQSocketBase, SendSocketBase):
+    def __init__(self, address, port, socket_type, bind=False, socket_opts=None):
+        ZMQSocketBase.__init__(self, address, port, socket_type, bind=bind, socket_opts=socket_opts)
 
     def send_impl(self, data, block):
         if block:
@@ -39,22 +43,9 @@ class ZMQPushSocket(ZMQSendSocket):
         super().__init__(address, port, zmq.PUSH, bind=bind)
 
 
-class ZMQRecvSocket(RecvSocketBase):
+class ZMQRecvSocket(ZMQSocketBase, RecvSocketBase):
     def __init__(self, address, port, socket_type, bind=False, socket_opts=None):
-        self.context = zmq.Context()
-        self.socket = self.context.socket(socket_type)
-        if socket_opts:
-            for opt in socket_opts:
-                self.socket.setsockopt(*opt)
-        if address is None:
-            address = 'localhost'
-        if bind:
-            address = '*'
-        full_addr = "tcp://%s:%s" % (str(address), str(port))
-        if bind:
-            self.socket.bind(full_addr)
-        else:
-            self.socket.connect(full_addr)
+        ZMQSocketBase.__init__(self, address, port, socket_type, bind=bind, socket_opts=socket_opts)
 
     def recv_impl(self, block):
         if block:
@@ -79,3 +70,9 @@ class ZMQSubSocket(ZMQRecvSocket):
 class ZMQPullSocket(ZMQRecvSocket):
     def __init__(self, address, port, bind=False):
         super().__init__(address, port, zmq.PULL, bind=bind)
+
+
+class ZMQPairSocket(ZMQSendSocket, ZMQRecvSocket):
+    def __init__(self, address, port, bind=False, socket_opts=None):
+        ZMQSocketBase.__init__(self, address, port, zmq.PAIR, bind=bind, socket_opts=socket_opts)
+

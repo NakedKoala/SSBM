@@ -1,14 +1,16 @@
-from . import communication
+from ssbm_bot.distr_rl import communication
 
 import time
 
 import torch
 
-pub_socket = communication.PushSocket(None, 50002, bind=True)
+pub_socket = communication.PairSocket(None, 50002, bind=True)
 
-pub_socket.send(0, block=False)
+pub_socket.send(0, block=True)
 print("done push")
-time.sleep(10)
+print(pub_socket.recv())
+print("done pull")
+# time.sleep(10)
 
 """
 for i in range(100):
