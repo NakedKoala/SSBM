@@ -150,8 +150,8 @@ def proc_df(df, char_id, opponent_id, stage_id, frame_delay, button_press_indica
             features_list.append(opp_cmd_df.to_numpy())
 
         features_np = np.concatenate(features_list, axis=1)
-        scaler = StandardScaler()
-        features_np[:,9:] = scaler.fit_transform(features_np[:,9:])
+        # scaler = StandardScaler()
+        # features_np[:,9:] = scaler.fit_transform(features_np[:,9:])
         # # 4 -> 52
         # import pdb
         # pdb.set_trace()
@@ -165,7 +165,7 @@ def proc_df(df, char_id, opponent_id, stage_id, frame_delay, button_press_indica
 
 
         features_tensor, cts_targets_tensor, char_button_targets_tensor = torch.from_numpy(features_np), torch.from_numpy(cts_targets_np), torch.from_numpy(char_target_button_targets_np)
-        # features_tensor[:,6:] = scale(features_tensor[:,6:])
+        features_tensor[:,9:] = scale(features_tensor[:,9:])
         recent_actions_tensor = torch.from_numpy(recent_actions_np)
         # import pdb
         # pdb.set_trace()
