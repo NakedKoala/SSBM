@@ -5,6 +5,7 @@ from .slp_parser import SLPParser
 from .dataset import SSBMDataset
 from .. import controller_indices as c_idx
 
+from collections import deque
 import pandas as pd
 import torch
 from torch.distributions.categorical import Categorical
@@ -30,7 +31,7 @@ class FrameContext(object):
                 "FrameContext window_size must be positive"
             )
         self.window_size = window_size
-        self.align_queue = []
+        self.align_queue = deque()
 
     # pushes frame into align queue and returns the entire queue as a tensor for input
     def push_frame(self, frame, char_id, opponent_id):

@@ -182,15 +182,15 @@ def proc_df(df, char_id, opponent_id, stage_id, frame_delay, button_press_indica
 
 def _fix_align_queue(align_queue, window_size, tensor_shape):
     for _ in range(window_size - len(align_queue)):
-        align_queue.insert(0, torch.zeros(*tensor_shape))
+        align_queue.appendleft(torch.zeros(*tensor_shape))
 
-# align_queue list list - not as efficient as queue, but we need to copy to tuple/list for torch.stack anyway
+# align_queue is deque
 def align(align_queue, window_size, new_frame):
     if len(align_queue) < window_size:
         _fix_align_queue(align_queue, window_size, new_frame.shape)
-    align_queue.pop(0)
+    align_queue.popleft()
     align_queue.append(new_frame)
-    return torch.stack(align_queue)
+    return torch.stack(tuple(align_queue))
 
 def compute_df_cols(pre_frame_attributes, post_frame_attributes, split_coord_attributes):
 
