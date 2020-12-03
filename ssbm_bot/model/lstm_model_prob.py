@@ -60,13 +60,14 @@ class SSBM_LSTM_Prob(nn.Module):
          if self.attention == False:
             lstm_representation = h_n
          else:
-            lstm_output_proj = self.attention_proj(lstm_output)
-            # (batch, seq_len, hidden * num_layer)
-            attention_logits = torch.squeeze(torch.bmm(input=lstm_output_proj, mat2=torch.unsqueeze(torch.squeeze(h_n, dim=0), dim=-1)), dim=-1)
-            attention_probs =  nn.functional.softmax(attention_logits, dim=1)
-            combined_hidden = torch.squeeze(torch.bmm(input=torch.unsqueeze(attention_probs, dim=1), mat2 = lstm_output), dim=1)
-            # (batch, hidden * num_layer )
-            lstm_representation = combined_hidden
+            # lstm_output_proj = self.attention_proj(lstm_output)
+            # # (batch, seq_len, hidden * num_layer)
+            # attention_logits = torch.squeeze(torch.bmm(input=lstm_output_proj, mat2=torch.unsqueeze(torch.squeeze(h_n, dim=0), dim=-1)), dim=-1)
+            # attention_probs =  nn.functional.softmax(attention_logits, dim=1)
+            # combined_hidden = torch.squeeze(torch.bmm(input=torch.unsqueeze(attention_probs, dim=1), mat2 = lstm_output), dim=1)
+            # # (batch, hidden * num_layer )
+            # lstm_representation = combined_hidden
+            pass
 
          lstm_representation = lstm_representation.view(self.num_layers, self.num_directions, batch_size, self.hidden_size)
          lstm_representation = lstm_representation[-1]

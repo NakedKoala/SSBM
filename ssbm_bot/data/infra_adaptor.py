@@ -52,6 +52,7 @@ def convert_output_tensor_to_command(cts_targets, button_targets, sample_top_n=3
     button_targets = button_targets.reshape(-1)
     dist = Categorical(logits = button_targets)
     button_combination_idx = dist.sample().item()
+    top_idx = np.argsort(button_targets.detach().numpy())[::-1][0:sample_top_n]
     # print(button_combination_idx)
     bitmap = button_combination_idx_to_bitmap(button_combination_idx)
 
@@ -60,6 +61,7 @@ def convert_output_tensor_to_command(cts_targets, button_targets, sample_top_n=3
         "c_stick":  (cts_targets[0,2].item(), cts_targets[0,3].item()),
         "l_shoulder": cts_targets[0,4].item(),
         "r_shoulder": cts_targets[0,5].item(),
+        "top_idx": top_idx,
         "button": {
             melee.enums.Button.BUTTON_Y: 0,
             melee.enums.Button.BUTTON_X: bitmap[0],
