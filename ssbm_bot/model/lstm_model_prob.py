@@ -84,11 +84,13 @@ class SSBM_LSTM_Prob(nn.Module):
             self.value_head = Sequential(*value_hidden_layers)
 
      def forward(self, x, forced_action=None, behavior=2):
-         x, recent_actions = x
+         if self.training:
+            x, recent_actions = x
          # x -> (batch, seq_len, feat_dim)
 
          # position and direction
-         latest_state = torch.cat([x[:, -1, 9:15], x[:, -1, 25:31]], dim=1)
+         if self.latest_state_reminder:
+            latest_state = torch.cat([x[:, -1, 9:15], x[:, -1, 25:31]], dim=1)
          # import pdb 
          # pdb.set_trace()
 
@@ -143,9 +145,12 @@ class SSBM_LSTM_Prob(nn.Module):
          lstm_representation = lstm_representation.view(self.num_layers, self.num_directions, batch_size, self.lstm_out_size)
          lstm_representation = lstm_representation[-1]
          lstm_representation = lstm_representation.permute(1, 0, 2).reshape(batch_size, -1)
-         o = torch.cat([lstm_representation, latest_state], dim=1)
-        
+         if self.latest_state_reminder:
+            o = torch.cat([lstm_representation, latest_state], dim=1)
+         else:
+            o = lstm_representation
 
+   
          o = self.dropout(o)
         #  import pdb
         #  pdb.set_trace()

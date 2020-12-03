@@ -22,15 +22,26 @@ class MeleeAI:
             self.index = frameIndex
 
 
-    def __init__(self):
+    def __init__(self, action_frequence):
         # self.model = SSBM_MVP(100, 50)
         # self.model.load_state_dict(torch.load('./weights/mvp_fit5_EP7_VL0349.pth',  map_location=lambda storage, loc: storage))
-
-        self.model = SSBM_LSTM_Prob(action_embedding_dim=100, button_embedding_dim=50, hidden_size=256, num_layers=3, bidirectional=True, dropout_p=0.2)
-        self.model.load_state_dict(torch.load('./weights/weights_lstm_action_head_delay_0_2020_11_18.pth',  map_location=lambda storage, loc: storage))
-
-        self.frame_ctx = FrameContext(window_size=60)
-
+        out_hidden_sizes=[
+            [256, 128], # buttons
+            [512, 256, 128], # stick coarse - NOTE - actually has 129 outputs
+            [128, 128], # stick fine
+            [128, 128], # stick magn
+            [256, 128], # cstick coarse - NOTE - actually has 129 outputs
+            [16, 16], # cstick fine
+            [128, 128], # cstick magn
+            [256, 128], # trigger
+        ]
+        self.model = SSBM_LSTM_Prob(action_embedding_dim=100, hidden_size=256, num_layers=3, bidirectional=True, dropout_p=0.2,  out_hidden_sizes=out_hidden_sizes,latest_state_reminder=True)
+        self.model.eval()
+        # self.model.load_state_dict(torch.load('./weights/weights_lstm_action_head_delay_0_2020_11_18.pth',  map_location=lambda storage, loc: storage))
+        self.model.load_state_dict(torch.load('./weights/lstm_fd5_wz30_noshuffle_reminder.pth',  map_location=lambda storage, loc: storage))
+        # self.frame_ctx = FrameContext(window_size=60)
+        self.frame_ctx = FrameContext(window_size=30)
+        self.action_frequence = action_frequence
         self.time = 0
 
         self.frames = []
@@ -78,10 +89,23 @@ class MeleeAI:
 
     def input_model_commands(self, frame):
         self.frames.append(torch.unsqueeze(self.frame_ctx.push_frame(frame, char_id=2, opponent_id=1),0))
+        
+        if self.action_frequence == None or self.frameCount % self.action_frequence == 0:
+            # action_frequence == None -> we want action every frame
+            _, choices, _ =  self.model(self.frames[-1])
+            commands = convert_action_state_to_command(choices[0])
 
-        _, choices, _ =  self.model(self.frames[-1])
+        if self.action_frequence != None and self.frameCount % (self.action_frequence + 2) == 0:
+            # a/b/x/z only holds 2 frame 
+            self.controller.release_button(melee.enums.Button.BUTTON_A)
+            self.controller.release_button(melee.enums.Button.BUTTON_B)
+            self.controller.release_button(melee.enums.Button.BUTTON_X)
+            self.controller.release_button(melee.enums.Button.BUTTON_Z)
 
-        commands = convert_action_state_to_command(choices[0])
+    
+        if self.action_frequence != None and self.frameCount % self.action_frequence != 0:
+            # If we don't want action every frame then we should return here
+            return 
 
         for button, pressed in commands["button"].items():
             if pressed == 1:
@@ -201,5 +225,5 @@ class MeleeAI:
                 self.controller.release_all()
 
 if __name__ == "__main__":
-    agent = MeleeAI()
+    agent = MeleeAI(action_frequence=5)
     agent.start()
