@@ -23,7 +23,7 @@ def adversary_loop(
     model = runner_socket.recv()
     if not isinstance(model, torch.nn.Module):
         raise RuntimeError("Adversary received non-torch.nn.Module as first message!")
-    trainer = A3CTrainer(model)
+    adversary = A3CTrainer(model)
 
     input_manager = InputManager(window_size, frame_delay)
     last_action = None
@@ -31,7 +31,7 @@ def adversary_loop(
     while True:
         payload = runner_socket.recv()
         if isinstance(payload, AdversaryParamPayload):
-            trainer.model.load_state_dict(payload.state_dict)
+            adversary.model.load_state_dict(payload.state_dict)
 
             # assume new game started.
             input_manager = InputManager(window_size, frame_delay)

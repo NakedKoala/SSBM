@@ -28,7 +28,7 @@ if __name__ == '__main__':
         adversary_port=50003,
         window_size=15,
         frame_delay=5,
-        send_exp_every=300,
+        send_exp_every=60,
         check_model_upd_every=5,
         output_reward_every=600,
         max_episodes=None,

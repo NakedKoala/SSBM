@@ -22,7 +22,8 @@ ProcExpPayload = namedtuple(
     [
         'states_input',     # delayed windows of full game states
         'action_input',     # recent model actions between delay and current time
-        'final_state',      # same as in ExpPayload
+        'final_state',      # final full window of game states used for a3c bootstrapping
+        'final_action',     # final full window of recent actions used for a3c bootstrapping
         'actions',          # same as in ExpPayload
         'rewards',          # same as in ExpPayload
     ]

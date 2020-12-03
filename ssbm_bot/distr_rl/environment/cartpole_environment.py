@@ -9,9 +9,11 @@ class CartPoleEnvironment(BaseEnvironment):
         pass
 
     def reset(self):
-        return torch.from_numpy(self.env.reset()).float()
+        state = torch.from_numpy(self.env.reset()).float()
+        return state, state
 
     def step(self, action):
         agent_action = action[0]
         state, reward, done, _ = self.env.step(agent_action[0].item())
-        return torch.from_numpy(state).float(), reward, done
+        state = torch.from_numpy(state).float()
+        return state, state, reward, done

@@ -16,7 +16,7 @@ class A3CTrainer(nn.Module):
         behavior=ActionHead.DEFAULT
     ):
         return self.model(
-            inputs,
+            inputs[0],
             forced_action=forced_action,
             behavior=behavior
         )
@@ -49,9 +49,7 @@ class A3CTrainer(nn.Module):
             value_est = 0
         else:
             # bootstrap
-            last_state_input = inputs[0][-1]
-            next_input = torch.cat((last_state_input[1:], next_state.unsqueeze(dim=0)), dim=0).unsqueeze(dim=0)
-            value_est = self.model.forward(next_input)[-1][0].item()
+            value_est = self.forward(next_state)[-1][0].item()
 
         returns = []
         for rwd in rewards[::-1]:

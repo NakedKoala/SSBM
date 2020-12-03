@@ -7,7 +7,8 @@
 
 from .adversary import adversary_loop
 from .communication import *
-from .payloads import ExpPayload, AdversaryParamPayload, AdversaryTerminatePayload
+from .input_manager import InputManager
+from .payloads import ExpPayload, AdversaryParamPayload, AdversaryInputPayload
 
 from ..data.common_parsing_logic import align
 from ..model.action_head import ActionHead
@@ -17,6 +18,8 @@ from itertools import islice
 import multiprocessing as mp
 import random
 import time
+
+import torch
 
 def _check_model_updates(model, param_socket, block=False):
     new_model_state = param_socket.recv(block=block)
@@ -58,7 +61,7 @@ def run_loop(
         daemon=True
     )
     adversary_proc.start()
-    adversary_socket.send(trainer.model, block=False)
+    adversary_socket.send(trainer.model, block=True)
 
     old_agents = []
 
@@ -71,12 +74,13 @@ def run_loop(
 
         # wait for latest model before starting the episode
         _check_model_updates(trainer.model, param_socket, block=True)
+
         if len(old_agents) == 0:
             old_agents.append(trainer.model.state_dict())
 
         # initialize adversary
         model_dict = old_agents[random.randrange(len(old_agents))]
-        adversary_socket.send(AdversaryParamPayload(state_dict=model_dict), block=False)
+        adversary_socket.send(AdversaryParamPayload(state_dict=model_dict), block=True)
 
         cur_frame = 1
         input_manager = InputManager(window_size, frame_delay)
@@ -89,7 +93,6 @@ def run_loop(
 
         # add the first window_size-1 zero states for payload init_state.
         # also include the first real state.
-        stale_state_buffer.extend(stale_state_align)
         for _ in range(window_size - 1):
             stale_state_buffer.append(torch.zeros_like(cur_state))
         stale_state_buffer.append(cur_state)
@@ -102,7 +105,7 @@ def run_loop(
             adversary_socket.send(AdversaryInputPayload(
                 state=adv_state,
                 behavior=ActionHead.DEFAULT,
-            ), block=False)
+            ), block=True)
 
             # get runner action
             last_action = None if len(actions_buffer) == 0 else actions_buffer[-1]

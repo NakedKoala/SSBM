@@ -32,7 +32,7 @@ def process_exps_loop(
         experiences = exp_socket.recv()
         # print("process_exp received payload")
 
-        if len(state_queue) != window_size-1:
+        if len(experiences.init_states) != window_size-1:
             sys.stderr.write("process_exp received payload with initial state "
                              "length != window_size-1. Skipping.\n")
             continue
@@ -58,30 +58,43 @@ def process_exps_loop(
             states_inputs.append(state_t)
             action_inputs.append(action_t)
 
+        if experiences.final_state is None:
+            final_state_t, final_action_t = None, None
+        else:
+            final_state_t, final_action_t = input_manager.get(experiences.final_state, experiences.actions[-1])
+
+        if frame_delay == 0:
+            action_input_t = None
+        else:
+            action_input_t = torch.cat(action_inputs, dim=0)
+
         payload = ProcExpPayload(
-            states_input=torch.stack(states_inputs),
-            action_input=torch.stack(action_inputs),
-            final_state=experiences.final_state,
+            states_input=torch.cat(states_inputs, dim=0),
+            action_input=action_input_t,
+            final_state=final_state_t,
+            final_action=final_action_t,
             actions=torch.cat(experiences.actions, dim=0),
             rewards=experiences.rewards
         )
         process_exp_socket.send(payload)
 
 
-def _save_model(model, save_path):
-    torch.save(model.state_dict(), save_path)
+def _save_model(model, ckpt_path, step):
+    ckpt_filename = ckpt_path + '_' + str(step) + '.pt'
+    torch.save(model.state_dict(), ckpt_filename)
 
 
 _MOVING_AVG_FACTOR = 0.99
 def train_loop(
     trainer,                # A3C trainer with model
     optimizer,              # optimizer to use
+    gamma,                  # gamma for RL
     exp_port,               # port for experience socket
     param_port,             # port for parameters socket
     exp_process_port,       # port for experience processing socket
     window_size,            # window size of full game state
     frame_delay,            # frame delay between state occurrence and observation
-    save_path,              # location to save weights
+    ckpt_path,              # location to save weights
     send_param_every=10,    # frequency of sending parameters to runners, in seconds.
     max_steps=None,         # maximum number of batches to train on
     output_loss_every=None, # frequency of outputting loss, in steps.
@@ -123,14 +136,25 @@ def train_loop(
             # print("training", cur_step)
 
             states_t = exp.states_input.to(device)
+            recent_actions_t = exp.action_input
+            if recent_actions_t is not None:
+                recent_actions_t = recent_actions_t.to(device)
+            input_t = (states_t, recent_actions_t)
+
+            if exp.final_state is None:
+                done = True
+                next_state = (None, None)
+            else:
+                done = False
+                if exp.final_action is None:
+                    next_state = (exp.final_state.to(device), None)
+                else:
+                    next_state = (exp.final_state.to(device), exp.final_action.to(device))
+
             actions_t = exp.actions.to(device)
             rewards = exp.rewards
-            next_state = exp.final_state
-            if next_state is not None:
-                next_state = next_state.to(device)
-            done = (next_state is None)
 
-            loss = trainer.optimize(optimizer, done, next_state, states_t, actions_t, rewards, 0.9)
+            loss = trainer.optimize(optimizer, done, next_state, input_t, actions_t, rewards, gamma)
             if avg_loss is None:
                 avg_loss = loss
             else:
@@ -141,7 +165,7 @@ def train_loop(
 
             # checkpoint
             if save_every and cur_step % save_every == 0:
-                _save_model(trainer.model, save_path)
+                _save_model(trainer.model, ckpt_path, cur_step)
 
             cur_step += 1
 
@@ -154,6 +178,6 @@ def train_loop(
             trainer.model.to(device)
             last_param_send_time = time.perf_counter()
 
-    _save_model(trainer.model, save_path)
+    _save_model(trainer.model, ckpt_path, cur_step)
 
     # daemonic process_exps_proc expected to exit

@@ -15,17 +15,18 @@ class InputManager(object):
         self.state_queue = deque()
         self.action_queue = deque()
 
+    # NOTE last_action requires a batch dimension
     def get(self, cur_state, last_action):
         cur_state_t = align(self.state_queue, self.window_size, cur_state).unsqueeze(dim=0)
         if self.frame_delay > 0:
             action_t = torch.zeros(7).float()
             if last_action is not None:
-                stick_x, stick_y = c_idx.stick.to_stick(*last_action[1:4])
-                cstick_x, cstick_y = c_idx.stick.to_stick(*last_action[4:7])
-                trigger = c_idx.trigger.to_trigger(last_action[7])
+                stick_x, stick_y = c_idx.stick.to_stick(*last_action[0,1:4])
+                cstick_x, cstick_y = c_idx.stick.to_stick(*last_action[0,4:7])
+                trigger = c_idx.trigger.to_trigger(last_action[0,7])
                 # recent action format is:
                 # buttons, stick x, stick y, cstick x, cstick y, trigger x, trigger y
-                action_t = torch.Tensor([last_action[0], stick_x, stick_y, cstick_x, cstick_y, trigger, 0.0]).float()
+                action_t = torch.Tensor([last_action[0,0], stick_x, stick_y, cstick_x, cstick_y, trigger, 0.0]).float()
             action_align_t = align(self.action_queue, self.frame_delay, action_t).unsqueeze(dim=0)
         else:
             action_align_t = None

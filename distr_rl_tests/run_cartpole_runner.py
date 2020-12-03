@@ -7,7 +7,6 @@ import sys
 
 if __name__ == '__main__':
     model = CartPoleModel()
-    adv_model = CartPoleModel()
     environment = CartPoleEnvironment()
     run_loop(
         trainer=A3CTrainer(model),

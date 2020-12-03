@@ -28,14 +28,17 @@ class SLPEnvironment(BaseEnvironment):
 
         self.reward_buffer = deque()
         self.recent_buffer = deque()
+        self.adversary_buffer = deque()
 
         self.device = device
 
     # always return empty state
     def reset(self):
         self.cur_frame = 0
+        self.reward_buffer.clear()
         self.recent_buffer.clear()
-        return torch.zeros(*self.state_shape, device=self.device)
+        self.adversary_buffer.clear()
+        return torch.zeros(*self.state_shape, device=self.device), torch.zeros(*self.state_shape, device=self.device)
 
     # ignore action and pretend the agent input the action specified by the current frame.
     def step(self, action):
@@ -45,6 +48,9 @@ class SLPEnvironment(BaseEnvironment):
             # compute new state for now and save it
             new_state = convert_frame_to_input_tensor(frame, char_id=2, opponent_id=1)[0]
             self.recent_buffer.append(new_state)
+
+            new_state_adv = convert_frame_to_input_tensor(frame, char_id=1, opponent_id=2)[0]
+            self.adversary_buffer.append(new_state_adv)
 
             # compute reward function for now and save it
             # test reward function: +1 for stock taken, -1 for stock loss
@@ -71,7 +77,7 @@ class SLPEnvironment(BaseEnvironment):
 
         # not enough recent states - return 0
         if self.cur_frame < len(self.slp.frames) and len(self.recent_buffer) <= self.frame_delay:
-            return torch.zeros(*self.state_shape, device=self.device), 0, False
+            return torch.zeros(*self.state_shape, device=self.device), torch.zeros(*self.state_shape, device=self.device), 0, False
 
         # get current delayed state and reward
         if len(self.recent_buffer) > 0:
@@ -79,9 +85,14 @@ class SLPEnvironment(BaseEnvironment):
         else:
             delayed_state_t = torch.zeros(*self.state_shape, device=self.device)
 
+        if len(self.adversary_buffer) > 0:
+            delayed_adv_state_t = self.adversary_buffer.popleft()
+        else:
+            delayed_adv_state_t = torch.zeros(*self.state_shape, device=self.device)
+
         if len(self.reward_buffer) > 0:
             delayed_reward, delayed_done = self.reward_buffer.popleft()
         else:
             delayed_reward, delayed_done = 0, True
 
-        return delayed_state_t, delayed_reward, delayed_done
+        return delayed_state_t, delayed_adv_state_t, delayed_reward, delayed_done
