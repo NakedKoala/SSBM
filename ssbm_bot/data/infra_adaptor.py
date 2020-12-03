@@ -13,13 +13,13 @@ import melee
 import warnings
 warnings.filterwarnings('ignore')
 # convert a single frame to an input tensor
-def convert_frame_to_input_tensor(frame, char_id, opponent_id):
+def convert_frame_to_input_tensor(frame, char_id, opponent_id, stage_id):
 
     dataframe_dict = initialize_dataframe_dict(SLPParser.pre_frame_attributes, SLPParser.post_frame_attributes, SLPParser.split_coord_attributes)
     proc_frame(dataframe_dict, frame, SLPParser.pre_frame_attributes, SLPParser.post_frame_attributes, SLPParser.split_coord_attributes)
     df = pd.DataFrame.from_dict(dataframe_dict)
     df = data_pre_proc_mvp(df)
-    features_tensor, _, _, _ = proc_df(df, char_id, opponent_id, 0, SSBMDataset.button_press_indicator_dim)
+    features_tensor, _, _, _ = proc_df(df, char_id, opponent_id, stage_id, 0, SSBMDataset.button_press_indicator_dim)
     return features_tensor
 
 # used to store a queue of window_size frames during inference

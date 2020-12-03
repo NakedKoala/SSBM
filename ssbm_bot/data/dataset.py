@@ -24,7 +24,7 @@ class SSBMDataset(Dataset):
 
     val_ratio = 0.2
     button_press_indicator_dim = 12
-    def __init__(self, src_dir, char_id, opponent_id, device, window_size=0, frame_delay=15, output_recent_actions=False, ds_type=None):
+    def __init__(self, src_dir, char_id, opponent_id, device, window_size=0, frame_delay=15, output_recent_actions=False, ds_type=None, stage_id=32):
         torch.manual_seed(0)
         self.csv_files = [ os.path.join(src_dir, fname) for fname in os.listdir(src_dir) if '.csv' in fname]
         self.features_per_game = []
@@ -36,14 +36,15 @@ class SSBMDataset(Dataset):
         self.frame_delay = frame_delay
         self.output_recent_actions=output_recent_actions
         self.device = device
-
-
+        
+     
         for csv_path in tqdm(self.csv_files, position=0, leave=True):
             try:
                 df = pd.read_csv(csv_path, index_col="frame_index")
-                features, cts_targets, bin_cls_targets, recent_actions = proc_df(df, char_id, opponent_id, self.frame_delay, SSBMDataset.button_press_indicator_dim)
+                features, cts_targets, bin_cls_targets, recent_actions = proc_df(df, char_id, opponent_id,  stage_id, self.frame_delay, SSBMDataset.button_press_indicator_dim)
 
                 self.features_per_game.append(features)
+               
                 # prefix sum on frame_splits for indexing
                 self.frame_splits.append(self.frame_splits[-1] + len(features))
 
@@ -60,8 +61,8 @@ class SSBMDataset(Dataset):
         self.cts_targets = torch.cat(self.cts_targets, dim=0)
         self.bin_cls_targets = torch.cat(self.bin_cls_targets, dim=0)
         self.recent_actions = torch.cat(self.recent_actions, dim=0)
-        # import pdb
-        # pdb.set_trace()
+      
+       
 
         # move per-game features to device
         for features in self.features_per_game:
