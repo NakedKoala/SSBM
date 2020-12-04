@@ -44,6 +44,7 @@ class SLPParser:
         stage = self.slp_object.start.stage.name
         return f'{timestamp}_{"_".join(characters)}_{stage.replace("_", "")}'
 
+    """
     def proc_frames(self, frames, dest_fname):
 
         dataframe_dict = initialize_dataframe_dict(SLPParser.pre_frame_attributes, SLPParser.post_frame_attributes, SLPParser.split_coord_attributes)
@@ -56,10 +57,12 @@ class SLPParser:
         df = data_pre_proc_mvp(df)
 
         df.to_csv(os.path.join(self.dest_dir, dest_fname + ".csv"), index=False)
+    """
 
     def proc_file(self, src_fname,rename_only=False):
         try:
                 self.slp_object = Game(os.path.join(self.src_dir, src_fname))
+                stage = self.slp_object.start.stage
 
                 dest_fname = self.format_filename()
 
@@ -71,7 +74,7 @@ class SLPParser:
                     dataframe_dict = initialize_dataframe_dict(SLPParser.pre_frame_attributes, SLPParser.post_frame_attributes, SLPParser.split_coord_attributes)
 
                     for frame in self.slp_object.frames:
-                        proc_frame(dataframe_dict, frame, SLPParser.pre_frame_attributes, SLPParser.post_frame_attributes, SLPParser.split_coord_attributes)
+                        proc_frame(dataframe_dict, frame, stage, SLPParser.pre_frame_attributes, SLPParser.post_frame_attributes, SLPParser.split_coord_attributes)
 
                     df = pd.DataFrame.from_dict(dataframe_dict)
 

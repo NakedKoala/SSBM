@@ -46,7 +46,7 @@ class SSBMDataset(Dataset):
             try:
                 df = pd.read_csv(csv_path, index_col="frame_index")
                 features, cts_targets, bin_cls_targets, recent_actions = proc_df(
-                    df, char_id, opponent_id,  stage_id, self.frame_delay, SSBMDataset.button_press_indicator_dim,
+                    df, char_id, opponent_id, self.frame_delay, SSBMDataset.button_press_indicator_dim,
                     include_opp_input=self.include_opp_input
                 )
 

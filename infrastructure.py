@@ -111,32 +111,32 @@ class MeleeAI:
         self.time = time.time()
         return self.console.step()  # get frame data
 
-    def input_model_commands(self, frame):
-        self.frames.append(torch.unsqueeze(self.frame_ctx.push_frame(frame, char_id=2, opponent_id=1),0))
-        
+    def input_model_commands(self, frame, stage_id):
+        self.frames.append(torch.unsqueeze(self.frame_ctx.push_frame(frame, char_id=2, opponent_id=1, stage_id=stage_id),0))
+
         if self.action_frequence == None or self.frameCount % self.action_frequence == 0:
             # action_frequence == None -> we want action every frame
             _, choices, _ =  self.model(self.frames[-1])
             commands = convert_action_state_to_command(choices[0])
 
         if self.action_frequence != None and self.frameCount % (self.action_frequence + 2) == 0:
-            # a/b/x/z only holds 2 frame 
+            # a/b/x/z only holds 2 frame
             self.controller.release_button(melee.enums.Button.BUTTON_A)
             self.controller.release_button(melee.enums.Button.BUTTON_B)
             self.controller.release_button(melee.enums.Button.BUTTON_X)
             self.controller.release_button(melee.enums.Button.BUTTON_Z)
 
-    
+
         if self.action_frequence != None and self.frameCount % self.action_frequence != 0:
             # If we don't want action every frame then we should return here
-            return 
+            return
 
         for button, pressed in commands["button"].items():
             if pressed == 1:
                 self.controller.press_button(button)
             else:
                 self.controller.release_button(button)
-        
+
         self.controller.press_shoulder(melee.enums.Button.BUTTON_L, commands["l_shoulder"] if commands["l_shoulder"] > 0 else 0)
         self.controller.press_shoulder(melee.enums.Button.BUTTON_R, commands["r_shoulder"] if commands["r_shoulder"] > 0 else 0)
 
@@ -220,23 +220,31 @@ class MeleeAI:
 
         return frame
 
+    _STAGE_CONVERSION = {
+        melee.enums.Stage.BATTLEFIELD: 31,
+        melee.enums.Stage.DREAMLAND: 28,
+        melee.enums.Stage.FINAL_DESTINATION: 32,
+        melee.enums.Stage.FOUNTAIN_OF_DREAMS: 2,
+        melee.enums.Stage.POKEMON_STADIUM: 3,
+        melee.enums.Stage.YOSHIS_STORY: 8,
+    }
+
     def game_loop(self):
         while True:
-            
             gamestate = self.next_state()
             if gamestate is None:  # loop happened before game state changed/posted new frame
                 continue
-           
+
             frame = self.parse_gamestate(gamestate)
-            self.input_model_commands(frame)
+            self.input_model_commands(frame, self._STAGE_CONVERSION[gamestate.stage])
 
             self.frameCount += 1
 
     def start(self):
-       
+
         while True:
             gamestate = self.next_state()
-          
+
             if gamestate is None:  # loop happened before game state changed/posted new frame
                 continue
 

@@ -89,7 +89,7 @@ def proc_button_press(buttons_values_np, button_press_indicator_dim, bitmap=Fals
 
 
 
-def proc_df(df, char_id, opponent_id, stage_id, frame_delay, button_press_indicator_dim, include_opp_input=True, dist=True):
+def proc_df(df, char_id, opponent_id, frame_delay, button_press_indicator_dim, include_opp_input=True, dist=True):
 
         feat_cols = ['pre_state',  'post_state', 'pre_direction_1', 'pre_direction_-1', 'pre_position_x', 'pre_position_y',  'post_position_x', 'post_position_y',\
                 'post_damage', 'post_state_age', 'post_shield', \
@@ -97,6 +97,9 @@ def proc_df(df, char_id, opponent_id, stage_id, frame_delay, button_press_indica
                 'post_stocks', 'post_jumps']
         target_cols = ['pre_joystick_x', 'pre_joystick_y',  'pre_cstick_x', 'pre_cstick_y', \
                        'pre_triggers_x', 'pre_triggers_y', 'pre_buttons']
+
+        stage_id = int(df['stage'].iloc[0])
+        assert(stage_id > 0)
 
         # FIXME need to handle case where character ID can change
         # e.g. zelda/sheik transform
@@ -212,7 +215,7 @@ def compute_df_cols(pre_frame_attributes, post_frame_attributes, split_coord_att
         if col in split_coord_attributes:
             split_coord_cols.append(f'post_{col}_x')
             split_coord_cols.append(f'post_{col}_y')
-    return ["frame_index"] + pre_frame_cols + post_frame_cols + split_coord_cols
+    return ["frame_index", "port", "stage"] + pre_frame_cols + post_frame_cols + split_coord_cols
 
 def initialize_dataframe_dict(pre_frame_attributes, post_frame_attributes, split_coord_attributes):
     return {col: []  for col in compute_df_cols(pre_frame_attributes, post_frame_attributes, split_coord_attributes)}
@@ -264,7 +267,7 @@ def extract_coord(state, att_name):
         else:
             return att_value.x, att_value.y
 
-def proc_frame(dataframe_dict, frame, pre_frame_attributes, post_frame_attributes, split_coord_attributes):
+def proc_frame(dataframe_dict, frame, stage, pre_frame_attributes, post_frame_attributes, split_coord_attributes):
 
     frame_index = frame.index
     dataframe_dict['frame_index'].append(frame_index)
@@ -300,3 +303,10 @@ def proc_frame(dataframe_dict, frame, pre_frame_attributes, post_frame_attribute
             dataframe_dict[f'post_{att_name}'].append(proc_attr_value(char1_state_post, att_name))
             dataframe_dict[f'post_{att_name}'].append(proc_attr_value(char2_state_post, att_name))
 
+    # push port and stage information
+    valid_port_idx = [ idx for idx, item in enumerate(frame.ports) if item != None]
+    assert(len(valid_port_idx) == 2)
+    dataframe_dict['port'].append(valid_port_idx[0])
+    dataframe_dict['port'].append(valid_port_idx[1])
+    dataframe_dict['stage'].append(stage)
+    dataframe_dict['stage'].append(stage)

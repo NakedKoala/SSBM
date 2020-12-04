@@ -21,8 +21,9 @@ class SLPEnvironment(BaseEnvironment):
         self.frame_delay = frame_delay
         self.cur_frame = 0
         self.slp = slippi.Game(slp_filename)
+        self.stage = self.slp.start.stage
 
-        dummy_features = convert_frame_to_input_tensor(self.slp.frames[0], char_id=2, opponent_id=1)
+        dummy_features = convert_frame_to_input_tensor(self.slp.frames[0], char_id=2, opponent_id=1, stage_id=self.stage)
         # unwrap first dimension
         self.state_shape = dummy_features.shape[1:]
 
@@ -46,10 +47,10 @@ class SLPEnvironment(BaseEnvironment):
             frame = self.slp.frames[self.cur_frame]
 
             # compute new state for now and save it
-            new_state = convert_frame_to_input_tensor(frame, char_id=2, opponent_id=1)[0]
+            new_state = convert_frame_to_input_tensor(frame, char_id=2, opponent_id=1, stage_id=self.stage)[0]
             self.recent_buffer.append(new_state)
 
-            new_state_adv = convert_frame_to_input_tensor(frame, char_id=1, opponent_id=2)[0]
+            new_state_adv = convert_frame_to_input_tensor(frame, char_id=1, opponent_id=2, stage_id=self.stage)[0]
             self.adversary_buffer.append(new_state_adv)
 
             # compute reward function for now and save it
