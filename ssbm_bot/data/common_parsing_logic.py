@@ -5,28 +5,31 @@ import numpy as np
 import torch
 from sklearn.preprocessing import StandardScaler
 
-def scale(tensor):
+def scale(tensor, include_opp_inputs=True):
+    if include_opp_inputs:
+        mean = torch.tensor([ 5.02553956e-01,  4.95817799e-01,  1.40581029e+00,  7.89299335e+00,
+            1.40768720e+00,  7.83883126e+00,  5.53661720e+01,  1.20425827e+01,
+            5.87270675e+01,  5.59028995e+00,  5.28925141e-01,  5.53661238e+01,
+            5.02546097e-01,  4.95825659e-01,  2.71677399e+00,  1.29873838e+00,
+            5.07101919e-01,  4.91269836e-01,  1.66814213e+00,  3.59902029e+00,
+            1.66925132e+00,  3.55073426e+00,  4.56217565e+01,  1.09246301e+01,
+            5.91899782e+01,  6.75767245e+00,  4.63838514e-01,  4.56217565e+01,
+            5.07098508e-01,  4.91273247e-01,  2.71052200e+00,  1.39730901e+00,
+            4.32836837e-03, -5.96757321e-02, -1.71501006e-03, -1.15619207e-02,
+            1.12902121e-01,  8.38341973e-02, -9.35819824e-04, -3.93679828e-02,
+           -2.32215766e-03,  2.02003898e-03,  8.82905794e-02,  7.80616650e-02])
+        std = torch.tensor([ 0.49999347,  0.49998253, 63.02228144, 31.72558865, 63.07312014,
+           31.75579231, 45.46381422, 12.17110586,  4.39057318, 17.53156162,
+            0.49916263, 45.4638078 ,  0.49999351,  0.49998258,  1.07355414,
+            0.74220231,  0.49994954,  0.49992377, 67.43632909, 25.079946  ,
+           67.52402291, 25.08930499, 38.05912047, 11.65851841,  3.58490302,
+           23.51914017,  0.49869064, 38.05912047,  0.49994962,  0.49992385,
+            1.07662804,  0.71687031,  0.65542925,  0.37686592,  0.16051784,
+            0.15054085,  0.28979694,  0.2581864 ,  0.60523536,  0.44734949,
+            0.11757759,  0.13107539,  0.25487635,  0.24304935])
+    else:
+        pass
 
-    mean = torch.tensor([ 5.02553956e-01,  4.95817799e-01,  1.40581029e+00,  7.89299335e+00,
-        1.40768720e+00,  7.83883126e+00,  5.53661720e+01,  1.20425827e+01,
-        5.87270675e+01,  5.59028995e+00,  5.28925141e-01,  5.53661238e+01,
-        5.02546097e-01,  4.95825659e-01,  2.71677399e+00,  1.29873838e+00,
-        5.07101919e-01,  4.91269836e-01,  1.66814213e+00,  3.59902029e+00,
-        1.66925132e+00,  3.55073426e+00,  4.56217565e+01,  1.09246301e+01,
-        5.91899782e+01,  6.75767245e+00,  4.63838514e-01,  4.56217565e+01,
-        5.07098508e-01,  4.91273247e-01,  2.71052200e+00,  1.39730901e+00,
-        4.32836837e-03, -5.96757321e-02, -1.71501006e-03, -1.15619207e-02,
-        1.12902121e-01,  8.38341973e-02, -9.35819824e-04, -3.93679828e-02,
-       -2.32215766e-03,  2.02003898e-03,  8.82905794e-02,  7.80616650e-02])
-    std = torch.tensor([ 0.49999347,  0.49998253, 63.02228144, 31.72558865, 63.07312014,
-       31.75579231, 45.46381422, 12.17110586,  4.39057318, 17.53156162,
-        0.49916263, 45.4638078 ,  0.49999351,  0.49998258,  1.07355414,
-        0.74220231,  0.49994954,  0.49992377, 67.43632909, 25.079946  ,
-       67.52402291, 25.08930499, 38.05912047, 11.65851841,  3.58490302,
-       23.51914017,  0.49869064, 38.05912047,  0.49994962,  0.49992385,
-        1.07662804,  0.71687031,  0.65542925,  0.37686592,  0.16051784,
-        0.15054085,  0.28979694,  0.2581864 ,  0.60523536,  0.44734949,
-        0.11757759,  0.13107539,  0.25487635,  0.24304935])
     return (tensor - mean) / std
 
 def bitmap_to_number(bits):
@@ -88,7 +91,6 @@ def proc_button_press(buttons_values_np, button_press_indicator_dim, bitmap=Fals
 
 def proc_df(df, char_id, opponent_id, stage_id, frame_delay, button_press_indicator_dim, include_opp_input=True, dist=True):
 
-
         feat_cols = ['pre_state',  'post_state', 'pre_direction_1', 'pre_direction_-1', 'pre_position_x', 'pre_position_y',  'post_position_x', 'post_position_y',\
                 'post_damage', 'post_state_age', 'post_shield', \
                 'post_hit_stun', 'post_airborne', 'pre_damage',  'post_direction_1', 'post_direction_-1', \
@@ -108,7 +110,7 @@ def proc_df(df, char_id, opponent_id, stage_id, frame_delay, button_press_indica
         char_features_df, char_cmd_df, char_targets_df = df_char[feat_cols].shift(frame_delay).fillna(0), \
                                                          df_char[target_cols].shift(frame_delay).fillna(0), \
                                                          df_char[target_cols].shift(-1).fillna(0),
-       
+
         opp_features_df, opp_cmd_df = df_opp[feat_cols].shift(frame_delay).fillna(0),\
                                       df_opp[target_cols].shift(frame_delay).fillna(0)
 
@@ -128,12 +130,6 @@ def proc_df(df, char_id, opponent_id, stage_id, frame_delay, button_press_indica
         char_cmd_button_targets_np = proc_button_press(char_cmd_button_values_np, button_press_indicator_dim)
         opp_cmd_button_targets_np = proc_button_press(opp_cmd_button_values_np, button_press_indicator_dim)
 
-
-        # TODO model is currently fed in opponent controller inputs.
-        # This might be regarded as cheating from human POV, so we should
-        # consider removing opponent controller input from features in the future.
-        # Ideally, the model will still be able to tell what the opponent is doing
-        # by looking at position + action state + state age
         num_examples = len(char_features_df)
         features_list = [char_features_df.to_numpy()[:,0:2], char_cmd_button_targets_np.reshape(-1, 1), np.full((num_examples,1), char_id), \
             opp_features_df.to_numpy()[:,0:2]]
@@ -165,18 +161,29 @@ def proc_df(df, char_id, opponent_id, stage_id, frame_delay, button_press_indica
 
 
         features_tensor, cts_targets_tensor, char_button_targets_tensor = torch.from_numpy(features_np), torch.from_numpy(cts_targets_np), torch.from_numpy(char_target_button_targets_np)
-        features_tensor[:,9:] = scale(features_tensor[:,9:])
+
+        # normalize continuous features
+        if include_opp_input:
+            features_tensor[:,9:] = scale(features_tensor[:,9:])
+        else:
+            # features_tensor[:,8:] = scale(features_tensor[:,8:], include_opp_input=False)
+            # TODO determine normalization tensors
+            pass
+
         recent_actions_tensor = torch.from_numpy(recent_actions_np)
         # import pdb
         # pdb.set_trace()
-        assert(features_tensor.shape[1] == 19 * 2 + 7 * 2 + 1)
         assert(cts_targets_tensor.shape[1] == 6)
         assert(recent_actions_tensor.shape[1] == 6 + 1)
         # assert(char_button_targets_tensor.shape[1] == 5)
+        if include_opp_input:
+            assert(features_tensor.shape[1] == 19 * 2 + 7 * 2 + 1)
+        else:
+            assert(features_tensor.shape[1] == (19 * 2) + 7 * 1 + 1)
 
         # import pdb
         # pdb.set_trace()
-       
+
         return features_tensor.float(), cts_targets_tensor.float(),  char_button_targets_tensor.float(), \
             recent_actions_tensor.float()
 

@@ -24,7 +24,10 @@ class SSBMDataset(Dataset):
 
     val_ratio = 0.2
     button_press_indicator_dim = 12
-    def __init__(self, src_dir, char_id, opponent_id, device, window_size=0, frame_delay=15, output_recent_actions=False, ds_type=None, stage_id=32):
+    def __init__(
+        self, src_dir, char_id, opponent_id, device, window_size=0, frame_delay=15, output_recent_actions=False, ds_type=None, stage_id=32,
+        include_opp_input=True
+    ):
         torch.manual_seed(0)
         self.csv_files = [ os.path.join(src_dir, fname) for fname in os.listdir(src_dir) if '.csv' in fname]
         self.features_per_game = []
@@ -35,13 +38,17 @@ class SSBMDataset(Dataset):
         self.window_size = window_size
         self.frame_delay = frame_delay
         self.output_recent_actions=output_recent_actions
+        self.include_opp_input = include_opp_input
         self.device = device
 
 
         for csv_path in tqdm(self.csv_files, position=0, leave=True):
             try:
                 df = pd.read_csv(csv_path, index_col="frame_index")
-                features, cts_targets, bin_cls_targets, recent_actions = proc_df(df, char_id, opponent_id,  stage_id, self.frame_delay, SSBMDataset.button_press_indicator_dim)
+                features, cts_targets, bin_cls_targets, recent_actions = proc_df(
+                    df, char_id, opponent_id,  stage_id, self.frame_delay, SSBMDataset.button_press_indicator_dim,
+                    include_opp_input=self.include_opp_input
+                )
 
                 self.features_per_game.append(features)
 

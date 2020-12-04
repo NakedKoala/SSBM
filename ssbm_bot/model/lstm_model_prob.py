@@ -9,15 +9,14 @@ from .action_head import ActionHead
 
 class SSBM_LSTM_Prob(nn.Module):
      action_state_dim = 383
-     button_combination_dim = 32
      input_dim = 53
-     cts_out_dim = 6
-     logit_out_dim = 32
+     no_opp_input_dim = 46
      recent_actions_dim = 7
      num_embedding_features = 9
+     no_opp_num_emb_feats = 8
      def __init__(self, action_embedding_dim, hidden_size = 256, num_layers = 1, bidirectional=False, dropout_p=0.2,
-                  attention=False, recent_actions=False, value_hidden_sizes = [256, 128], character_embedding_dim = 50, 
-                  stage_embedding_dim = 50, include_opp_input=True, latest_state_reminder=True,
+                  attention=False, recent_actions=False, value_hidden_sizes = [256, 128], character_embedding_dim = 50,
+                  stage_embedding_dim = 50, include_opp_input=True, latest_state_reminder=False,
                   **kwargs):
             super().__init__()
 
@@ -34,14 +33,14 @@ class SSBM_LSTM_Prob(nn.Module):
             else:
                 self.lstm_out_size = hidden_size
             if latest_state_reminder:
-               self.action_head = ActionHead(self.lstm_out_size * self.num_directions + 12, **kwargs)
+               self.action_head = ActionHead(self.lstm_out_size * self.num_directions + 6, **kwargs)
             else:
                self.action_head = ActionHead(self.lstm_out_size * self.num_directions, **kwargs)
 
             self.action_state_embedding = Embedding(num_embeddings=self.action_state_dim, \
                                                     embedding_dim=action_embedding_dim)
 
-            
+
             self.character_embedding = Embedding(num_embeddings=33, embedding_dim=character_embedding_dim)
             self.stage_embedding = Embedding(num_embeddings=33, embedding_dim=stage_embedding_dim)
 
@@ -49,15 +48,25 @@ class SSBM_LSTM_Prob(nn.Module):
             self.button_combination_embedding = self.action_head.output_emb_layers[0]
             button_embedding_dim = self.button_combination_embedding.embedding_dim
 
-            self.in_features_dim = (self.input_dim - self.num_embedding_features) +  (4 * action_embedding_dim + 2 * button_embedding_dim) + character_embedding_dim * 2 + stage_embedding_dim
+            # change dimensions according to include_opp_input
+            self.include_opp_input = include_opp_input
+            self.in_dim = self.input_dim
+            self.num_emb_feats = self.num_embedding_features
+            if not include_opp_input:
+                self.in_dim = self.no_opp_input_dim
+                self.um_emb_feats = self.no_opp_num_emb_feats
+
+            num_btn_embs = 2 if include_opp_input else 1
+            self.in_features_dim = (self.in_dim - self.num_emb_feats) +  (4 * action_embedding_dim + num_btn_embs * button_embedding_dim) + character_embedding_dim * 2 + stage_embedding_dim
             self.num_layers = num_layers
             # import pdb
             # pdb.set_trace()
             self.LSTM = LSTM(input_size = self.in_features_dim, hidden_size= hidden_size, num_layers=num_layers, batch_first=True, bidirectional=bidirectional)
 
             # for recent actions
-            lstm2_in_dim = (self.recent_actions_dim - 1) + button_embedding_dim
-            self.LSTM2 = LSTM(input_size=lstm2_in_dim, hidden_size=hidden_size, num_layers=num_layers, batch_first=True, bidirectional=bidirectional)
+            if recent_actions:
+                lstm2_in_dim = (self.recent_actions_dim - 1) + button_embedding_dim
+                self.LSTM2 = LSTM(input_size=lstm2_in_dim, hidden_size=hidden_size, num_layers=num_layers, batch_first=True, bidirectional=bidirectional)
 
             self.attention_proj = Linear(in_features=self.lstm_out_size * self.num_directions, out_features=self.lstm_out_size * self.num_directions)
             self.dropout = Dropout(p=dropout_p)
@@ -66,10 +75,11 @@ class SSBM_LSTM_Prob(nn.Module):
             # create value head
             value_hidden_layers = []
             last_in_size = self.lstm_out_size * self.num_directions
-            
+
             if latest_state_reminder:
-               last_in_size += 12
-           
+               # last_in_size += 12
+               last_in_size += 6
+
             for v_hidden_size in value_hidden_sizes:
                 value_hidden_layers.extend((
                     Linear(in_features=last_in_size, out_features=v_hidden_size),
@@ -84,28 +94,43 @@ class SSBM_LSTM_Prob(nn.Module):
             self.value_head = Sequential(*value_hidden_layers)
 
      def forward(self, x, forced_action=None, behavior=2):
-         if self.training:
+         if self.recent_actions:
             x, recent_actions = x
          # x -> (batch, seq_len, feat_dim)
 
          # position and direction
          if self.latest_state_reminder:
-            latest_state = torch.cat([x[:, -1, 9:15], x[:, -1, 25:31]], dim=1)
-         # import pdb 
+            if self.include_opp_input:
+                # latest_state = torch.cat([x[:, -1, 9:15], x[:, -1, 25:31]], dim=1)
+                # player state only
+                latest_state = x[:, -1, 9:15]
+            else:
+                latest_state = x[:, -1, 8:14]
+
+         # import pdb
          # pdb.set_trace()
 
          batch_size = x.shape[0]
          seq_len = x.shape[1]
 
-         embed_indices, regular_feat = x[:,:,0:self.num_embedding_features].long(), x[:,:,self.num_embedding_features:]
-         
-         # action action button character  | action action button character | stage
-         action_embed_idx = torch.cat([embed_indices[:,:,0:2], embed_indices[:,:,4:6]] ,dim=1)
+         embed_indices, regular_feat = x[:,:,0:self.num_emb_feats].long(), x[:,:,self.num_emb_feats:]
 
-         button_combination_idx = torch.cat([embed_indices[:,:,2].reshape(batch_size, seq_len,1),embed_indices[:,:,6].reshape(batch_size, seq_len, 1)], dim=1)
-         
-         character_embed_idx = torch.cat([embed_indices[:,:,3], embed_indices[:,:,7]] ,dim=1)
-         stage_embed_idx = torch.cat([embed_indices[:,:,8]] ,dim=1)
+         if self.include_opp_input:
+             # action action button character  | action action button character | stage
+             action_embed_idx = torch.cat([embed_indices[:,:,0:2], embed_indices[:,:,4:6]] ,dim=1)
+
+             button_combination_idx = torch.cat([embed_indices[:,:,2].reshape(batch_size, seq_len,1),embed_indices[:,:,6].reshape(batch_size, seq_len, 1)], dim=1)
+
+             character_embed_idx = torch.cat([embed_indices[:,:,3], embed_indices[:,:,7]] ,dim=1)
+             stage_embed_idx = torch.cat([embed_indices[:,:,8]] ,dim=1)
+         else:
+             # action action button character  | action action character | stage
+             action_embed_idx = torch.cat([embed_indices[:,:,0:2], embed_indices[:,:,4:6]] ,dim=1)
+
+             button_combination_idx = embed_indices[:,:,2].reshape(batch_size, seq_len,1)
+
+             character_embed_idx = torch.cat([embed_indices[:,:,3], embed_indices[:,:,6]] ,dim=1)
+             stage_embed_idx = torch.cat([embed_indices[:,:,7]] ,dim=1)
 
 
          action_embed_feat = self.action_state_embedding(action_embed_idx.reshape(-1)).reshape(batch_size, seq_len, -1)
@@ -114,7 +139,7 @@ class SSBM_LSTM_Prob(nn.Module):
          stage_embed_feat =  self.stage_embedding(stage_embed_idx).reshape(batch_size, seq_len, -1)
 
          features = torch.cat([action_embed_feat, button_embed_feat, character_embed_feat, stage_embed_feat, regular_feat], axis=-1).float()
-         
+
          assert(features.shape == (batch_size, seq_len, self.in_features_dim))
          # hn -> (1, batch, hidden_dim)
          lstm_output, (h_n, c_n) = self.LSTM(features)
@@ -150,7 +175,7 @@ class SSBM_LSTM_Prob(nn.Module):
          else:
             o = lstm_representation
 
-   
+
          o = self.dropout(o)
         #  import pdb
         #  pdb.set_trace()
