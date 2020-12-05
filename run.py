@@ -28,9 +28,10 @@ import pandas as pd
 
 # Sample usage: training
 
-# device = 'cuda' if torch.cuda.is_available() else 'cpu'
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 # # # # SSBMDataset has a window_size argument for RNNs
-# trn_ds = SSBMDataset(src_dir="./", char_id=2, opponent_id=1, window_size=10, device=device)
+trn_ds = SSBMDataset(src_dir="/home/william.wen42/dataset/2020_12_04_falcon_v_fox_fd_2.0.1_csv/train", char_id=2, window_size=1, include_opp_input=True, device=device)
+import pdb; pdb.set_trace()
 # trn_dl = DataLoader(trn_ds, batch_size=256, shuffle=True, num_workers=0)
 
 
@@ -88,12 +89,12 @@ import pandas as pd
 # # e.g. print size
 # print(features_list[0].shape)
 
-import pandas as pd 
-import numpy as np
-from ssbm_bot.data.slp_parser import SLPParser
-from infrastructure import MeleeAI
-import melee
-from slippi import Game
+# import pandas as pd
+# import numpy as np
+# from ssbm_bot.data.slp_parser import SLPParser
+# from infrastructure import MeleeAI
+# import melee
+# from slippi import Game
 
 # # Read all frames using libmelee and use parse_gamestate() to convert to py-slippi equivalent
 # console = melee.Console(is_dolphin=False,
@@ -110,7 +111,7 @@ from slippi import Game
 #     if gamestate is None:
 #         break
 #     all_state.append(gamestate)
-    
+
 # converted_frames = []
 # for gamestate in all_state:
 #     converted_frames.append(agent.parse_gamestate(gamestate))

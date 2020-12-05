@@ -1,6 +1,15 @@
 from ssbm_bot.data.slp_parser import SLPParser
+from pathlib import Path
+import sys
 import pandas as pd
 pd.options.mode.chained_assignment = None  # default='warn'
 
-SLPParser(src_dir='../dataset/falcon_v_fox_marth_fd_2.0.1_dataset/train', dest_dir='../dataset/falcon_v_fox_marth_fd_2.0.1_dataset_csv/train')()
-SLPParser(src_dir='../dataset/falcon_v_fox_marth_fd_2.0.1_dataset/eval', dest_dir='../dataset/falcon_v_fox_marth_fd_2.0.1_dataset_csv/eval')()
+if __name__ == '__main__':
+    if len(sys.argv) != 3:
+        raise RuntimeError(
+            "requires 2 arguments: <source slp directory> <target csv directory>"
+        )
+    src_path = Path(sys.argv[1])
+    dest_path = Path(sys.argv[2])
+    SLPParser(src_dir=str(src_path / 'train'), dest_dir=str(dest_path / 'train'))()
+    SLPParser(src_dir=str(src_path / 'eval'), dest_dir=str(dest_path / 'eval'))()

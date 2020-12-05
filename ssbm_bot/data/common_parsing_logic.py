@@ -5,8 +5,9 @@ import numpy as np
 import torch
 from sklearn.preprocessing import StandardScaler
 
-def scale(tensor, include_opp_inputs=True):
-    if include_opp_inputs:
+def scale(tensor, include_opp_input=True):
+    # NOTE data from falcon vs fox on FD, v2.0.1+
+    if include_opp_input:
         mean = torch.tensor([ 5.02553956e-01,  4.95817799e-01,  1.40581029e+00,  7.89299335e+00,
             1.40768720e+00,  7.83883126e+00,  5.53661720e+01,  1.20425827e+01,
             5.87270675e+01,  5.59028995e+00,  5.28925141e-01,  5.53661238e+01,
@@ -28,7 +29,24 @@ def scale(tensor, include_opp_inputs=True):
             0.15054085,  0.28979694,  0.2581864 ,  0.60523536,  0.44734949,
             0.11757759,  0.13107539,  0.25487635,  0.24304935])
     else:
-        pass
+        mean = torch.tensor([ 5.0110638e-01,  4.9725160e-01,  1.2718267e+00,  7.9390016e+00,
+            1.2731744e+00,  7.8842220e+00,  5.5050415e+01,  1.2016634e+01,
+            5.8729122e+01,  5.5891562e+00,  5.2796239e-01,  5.5050369e+01,
+            5.0110865e-01,  4.9724931e-01,  2.7175202e+00,  1.2996517e+00,
+            5.0666440e-01,  4.9169359e-01,  1.5811079e+00,  3.6081700e+00,
+            1.5833863e+00,  3.5589495e+00,  4.5626381e+01,  1.0828938e+01,
+            5.9171535e+01,  6.7977214e+00,  4.6230331e-01,  4.5626369e+01,
+            5.0665838e-01,  4.9169958e-01,  2.7044199e+00,  1.4005343e+00,
+            4.2670579e-03, -6.0793433e-02, -2.1057569e-03, -1.1726107e-02,
+            1.1069417e-01,  8.5245676e-02])
+        std = torch.tensor([ 0.4999988 ,  0.4999925 , 62.96348   , 31.91961   , 63.013542  ,
+           31.9502    , 45.35477   , 12.135419  ,  4.404445  , 17.571968  ,
+            0.49921754, 45.354767  ,  0.4999988 ,  0.49999246,  1.0734138 ,
+            0.7424888 ,  0.49995562,  0.49993104, 67.272995  , 25.13912   ,
+           67.36112   , 25.148598  , 38.240543  , 11.368521  ,  3.627853  ,
+           23.622425  ,  0.49857697, 38.240543  ,  0.4999557 ,  0.49993113,
+            1.0750854 ,  0.7149457 ,  0.65529776,  0.37615   ,  0.16024348,
+            0.15091088,  0.2874641 ,  0.26076567])
 
     return (tensor - mean) / std
 
@@ -162,9 +180,7 @@ def proc_df(df, char_port, frame_delay, button_press_indicator_dim, include_opp_
         if include_opp_input:
             features_tensor[:,9:] = scale(features_tensor[:,9:])
         else:
-            # features_tensor[:,8:] = scale(features_tensor[:,8:], include_opp_input=False)
-            # TODO determine normalization tensors
-            pass
+            features_tensor[:,8:] = scale(features_tensor[:,8:], include_opp_input=False)
 
         recent_actions_tensor = torch.from_numpy(recent_actions_np)
         # import pdb
