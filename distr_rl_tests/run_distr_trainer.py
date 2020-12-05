@@ -6,8 +6,9 @@ import torch
 
 if __name__ == '__main__':
     model = SSBM_LSTM_Prob(
-        action_embedding_dim = 100, button_embedding_dim = 50, hidden_size = 256,
-        num_layers = 1, bidirectional=False, dropout_p=0.2, attention=False
+        action_embedding_dim = 100, hidden_size = 256,
+        num_layers = 1, bidirectional=False, dropout_p=0.2, attention=False,
+        recent_actions=True, include_opp_input=False,
     )
     optim = torch.optim.Adam(model.parameters(), lr=0.001, weight_decay=1e-5)
     train_loop(

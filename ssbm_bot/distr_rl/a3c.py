@@ -16,7 +16,7 @@ class A3CTrainer(nn.Module):
         behavior=ActionHead.DEFAULT
     ):
         return self.model(
-            inputs[0],
+            inputs,
             forced_action=forced_action,
             behavior=behavior
         )

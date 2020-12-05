@@ -17,13 +17,19 @@ from ...data.common_parsing_logic import align
 class SLPEnvironment(BaseEnvironment):
     # NOTE convention is: frame_delay == 0 means agent acts ASAP;
     # equivalent to shifting by 1 when forming the dataset.
-    def __init__(self, frame_delay, slp_filename, device):
+    def __init__(self, frame_delay, slp_filename, player_port, device):
         self.frame_delay = frame_delay
         self.cur_frame = 0
         self.slp = slippi.Game(slp_filename)
         self.stage = self.slp.start.stage
 
-        dummy_features = convert_frame_to_input_tensor(self.slp.frames[0], char_id=2, opponent_id=1, stage_id=self.stage)
+        self.player_port = player_port
+        for i, port in enumerate(self.slp.start.players):
+            if port is not None and i != player_port:
+                self.adv_port = i
+                break
+
+        dummy_features = convert_frame_to_input_tensor(self.slp.frames[0], char_port=player_port, stage_id=self.stage, include_opp_input=False)
         # unwrap first dimension
         self.state_shape = dummy_features.shape[1:]
 
@@ -47,10 +53,10 @@ class SLPEnvironment(BaseEnvironment):
             frame = self.slp.frames[self.cur_frame]
 
             # compute new state for now and save it
-            new_state = convert_frame_to_input_tensor(frame, char_id=2, opponent_id=1, stage_id=self.stage)[0]
+            new_state = convert_frame_to_input_tensor(frame, char_port=self.player_port, stage_id=self.stage, include_opp_input=False)[0]
             self.recent_buffer.append(new_state)
 
-            new_state_adv = convert_frame_to_input_tensor(frame, char_id=1, opponent_id=2, stage_id=self.stage)[0]
+            new_state_adv = convert_frame_to_input_tensor(frame, char_port=self.adv_port, stage_id=self.stage, include_opp_input=False)[0]
             self.adversary_buffer.append(new_state_adv)
 
             # compute reward function for now and save it

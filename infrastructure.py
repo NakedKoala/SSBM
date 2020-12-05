@@ -112,7 +112,7 @@ class MeleeAI:
         return self.console.step()  # get frame data
 
     def input_model_commands(self, frame, stage_id):
-        self.frames.append(torch.unsqueeze(self.frame_ctx.push_frame(frame, char_id=2, opponent_id=1, stage_id=stage_id),0))
+        self.frames.append(torch.unsqueeze(self.frame_ctx.push_frame(frame, char_port=1, stage_id=stage_id, include_opp_input=True),0))
 
         if self.action_frequence == None or self.frameCount % self.action_frequence == 0:
             # action_frequence == None -> we want action every frame

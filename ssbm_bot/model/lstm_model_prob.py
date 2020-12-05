@@ -33,7 +33,7 @@ class SSBM_LSTM_Prob(nn.Module):
             else:
                 self.lstm_out_size = hidden_size
             if latest_state_reminder:
-               self.action_head = ActionHead(self.lstm_out_size * self.num_directions + 6, **kwargs)
+               self.action_head = ActionHead(self.lstm_out_size * self.num_directions + 12, **kwargs)
             else:
                self.action_head = ActionHead(self.lstm_out_size * self.num_directions, **kwargs)
 
@@ -77,8 +77,7 @@ class SSBM_LSTM_Prob(nn.Module):
             last_in_size = self.lstm_out_size * self.num_directions
 
             if latest_state_reminder:
-               # last_in_size += 12
-               last_in_size += 6
+               last_in_size += 12
 
             for v_hidden_size in value_hidden_sizes:
                 value_hidden_layers.extend((
@@ -101,11 +100,9 @@ class SSBM_LSTM_Prob(nn.Module):
          # position and direction
          if self.latest_state_reminder:
             if self.include_opp_input:
-                # latest_state = torch.cat([x[:, -1, 9:15], x[:, -1, 25:31]], dim=1)
-                # player state only
-                latest_state = x[:, -1, 9:15]
+                latest_state = torch.cat([x[:, -1, 9:15], x[:, -1, 25:31]], dim=1)
             else:
-                latest_state = x[:, -1, 8:14]
+                latest_state = torch.cat([x[:, -1, 8:14], x[:, -1, 24:30]], dim=1)
 
          # import pdb
          # pdb.set_trace()
@@ -115,22 +112,28 @@ class SSBM_LSTM_Prob(nn.Module):
 
          embed_indices, regular_feat = x[:,:,0:self.num_emb_feats].long(), x[:,:,self.num_emb_feats:]
 
+         # import pdb; pdb.set_trace()
+         # stage | (player) state state character button | (opponent) state state character [button]
+         stage_embed_idx = embed_indices[:,:,0]
+
+         action_embed_idx = torch.cat([
+             embed_indices[:,:,1:3].reshape(-1, 2),
+             embed_indices[:,:,5:7].reshape(-1, 2)
+         ], dim=1)
+
+         character_embed_idx = torch.cat([
+             embed_indices[:,:,3].reshape(-1, 1),
+             embed_indices[:,:,7].reshape(-1, 1)
+         ], dim=1)
+
          if self.include_opp_input:
-             # action action button character  | action action button character | stage
-             action_embed_idx = torch.cat([embed_indices[:,:,0:2], embed_indices[:,:,4:6]] ,dim=1)
+             button_combination_idx = torch.cat([
+                 embed_indices[:,:,4].reshape(-1, 1),
+                 embed_indices[:,:,8].reshape(-1, 1)
+             ], dim=1)
 
-             button_combination_idx = torch.cat([embed_indices[:,:,2].reshape(batch_size, seq_len,1),embed_indices[:,:,6].reshape(batch_size, seq_len, 1)], dim=1)
-
-             character_embed_idx = torch.cat([embed_indices[:,:,3], embed_indices[:,:,7]] ,dim=1)
-             stage_embed_idx = torch.cat([embed_indices[:,:,8]] ,dim=1)
          else:
-             # action action button character  | action action character | stage
-             action_embed_idx = torch.cat([embed_indices[:,:,0:2], embed_indices[:,:,4:6]] ,dim=1)
-
-             button_combination_idx = embed_indices[:,:,2].reshape(batch_size, seq_len,1)
-
-             character_embed_idx = torch.cat([embed_indices[:,:,3], embed_indices[:,:,6]] ,dim=1)
-             stage_embed_idx = torch.cat([embed_indices[:,:,7]] ,dim=1)
+             button_combination_idx = embed_indices[:,:,4]
 
 
          action_embed_feat = self.action_state_embedding(action_embed_idx.reshape(-1)).reshape(batch_size, seq_len, -1)

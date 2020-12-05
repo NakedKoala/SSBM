@@ -89,25 +89,18 @@ def proc_button_press(buttons_values_np, button_press_indicator_dim, bitmap=Fals
 
 
 
-def proc_df(df, char_id, opponent_id, frame_delay, button_press_indicator_dim, include_opp_input=True, dist=True):
+def proc_df(df, char_port, frame_delay, button_press_indicator_dim, include_opp_input=True, dist=True):
 
-        feat_cols = ['pre_state',  'post_state', 'pre_direction_1', 'pre_direction_-1', 'pre_position_x', 'pre_position_y',  'post_position_x', 'post_position_y',\
+        feat_cols = ['pre_state',  'post_state', 'post_character', 'pre_direction_1', 'pre_direction_-1', 'pre_position_x', 'pre_position_y',  'post_position_x', 'post_position_y',\
                 'post_damage', 'post_state_age', 'post_shield', \
                 'post_hit_stun', 'post_airborne', 'pre_damage',  'post_direction_1', 'post_direction_-1', \
                 'post_stocks', 'post_jumps']
         target_cols = ['pre_joystick_x', 'pre_joystick_y',  'pre_cstick_x', 'pre_cstick_y', \
                        'pre_triggers_x', 'pre_triggers_y', 'pre_buttons']
 
-        stage_id = int(df['stage'].iloc[0])
-        assert(stage_id > 0)
-
-        # FIXME need to handle case where character ID can change
-        # e.g. zelda/sheik transform
-        # The above should be the only case.
-        # Also handle case where both players use the same character.
-        # Using port is probably a better option in the long run
-        df_char = df[df['post_character'] == char_id]
-        df_opp = df[df['post_character'] == opponent_id]
+        # NOTE assumes there are only 2 players playing
+        df_char = df[df['port'] == char_port]
+        df_opp = df[df['port'] != char_port]
 
         # NOTE frame delay convention: 0 frame delay means 'predict the next frame,' which means a shift of 1 is needed.
         char_features_df, char_cmd_df, char_targets_df = df_char[feat_cols].shift(frame_delay).fillna(0), \
@@ -134,15 +127,15 @@ def proc_df(df, char_id, opponent_id, frame_delay, button_press_indicator_dim, i
         opp_cmd_button_targets_np = proc_button_press(opp_cmd_button_values_np, button_press_indicator_dim)
 
         num_examples = len(char_features_df)
-        features_list = [char_features_df.to_numpy()[:,0:2], char_cmd_button_targets_np.reshape(-1, 1), np.full((num_examples,1), char_id), \
-            opp_features_df.to_numpy()[:,0:2]]
+        char_features_np = char_features_df.to_numpy()
+        opp_features_np = opp_features_df.to_numpy()
+        features_list = [df_char['stage'].to_numpy().reshape(-1, 1)]
+        features_list.extend([char_features_np[:, 0:3], char_cmd_button_targets_np.reshape(-1, 1), opp_features_np[:, 0:3]])
         if include_opp_input:
             features_list.append(opp_cmd_button_targets_np.reshape(-1, 1))
 
-        features_list = features_list + [np.full((num_examples, 1), opponent_id), np.full((num_examples, 1), stage_id)]
-
         features_list.extend([
-            char_features_df.to_numpy()[:,2:], opp_features_df.to_numpy()[:,2:], \
+            char_features_np[:,3:], opp_features_np[:,3:], \
             char_cmd_df.to_numpy()
         ])
         if include_opp_input:

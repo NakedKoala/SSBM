@@ -25,7 +25,7 @@ class SSBMDataset(Dataset):
     val_ratio = 0.2
     button_press_indicator_dim = 12
     def __init__(
-        self, src_dir, char_id, opponent_id, device, window_size=0, frame_delay=15, output_recent_actions=False, ds_type=None, stage_id=32,
+        self, src_dir, char_id, device, window_size=0, frame_delay=15, output_recent_actions=False, ds_type=None,
         include_opp_input=True
     ):
         torch.manual_seed(0)
@@ -41,25 +41,35 @@ class SSBMDataset(Dataset):
         self.include_opp_input = include_opp_input
         self.device = device
 
+        def add_data(df, port):
+            features, cts_targets, bin_cls_targets, recent_actions = proc_df(
+                df, port, self.frame_delay, SSBMDataset.button_press_indicator_dim,
+                include_opp_input=self.include_opp_input
+            )
+
+            self.features_per_game.append(features)
+
+            # prefix sum on frame_splits for indexing
+            self.frame_splits.append(self.frame_splits[-1] + len(features))
+
+            self.cts_targets.append(cts_targets)
+            self.bin_cls_targets.append(bin_cls_targets)
+            self.recent_actions.append(recent_actions)
+
+            # return True to notify stopping
+            return ds_type == 'dev' and self.frame_splits[-1] > 1000
 
         for csv_path in tqdm(self.csv_files, position=0, leave=True):
+            full = False
             try:
                 df = pd.read_csv(csv_path, index_col="frame_index")
-                features, cts_targets, bin_cls_targets, recent_actions = proc_df(
-                    df, char_id, opponent_id, self.frame_delay, SSBMDataset.button_press_indicator_dim,
-                    include_opp_input=self.include_opp_input
-                )
+                for port in range(4):
+                    if ((df['port'] == port) & (df['post_character'] == char_id)).any():
+                        if add_data(df, port):
+                            full = True
+                            break
 
-                self.features_per_game.append(features)
-
-                # prefix sum on frame_splits for indexing
-                self.frame_splits.append(self.frame_splits[-1] + len(features))
-
-                self.cts_targets.append(cts_targets)
-                self.bin_cls_targets.append(bin_cls_targets)
-                self.recent_actions.append(recent_actions)
-
-                if ds_type == 'dev' and self.frame_splits[-1] > 1000:
+                if full:
                     break
             except:
                 print(f'failed to load {csv_path}')
