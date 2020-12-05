@@ -69,7 +69,7 @@ class ActionHead(nn.Module):
     # use max for evaluating entire model output for evaluation
     # use random in RL experience generation occassionally
     # forced_action required for supervised learning and for RL learning
-    def forward(self, x, forced_action=None, behavior=2):
+    def forward(self, x, forced_action=None, behavior=1):
         if forced_action is not None:
             assert(forced_action.shape[0] == x.shape[0])
             assert(forced_action.shape[1] == len(self.output_lin_layers))

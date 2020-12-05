@@ -5,7 +5,6 @@ import torch
 from .environment import BaseEnvironment
 
 from ...data.infra_adaptor import convert_frame_to_input_tensor
-from ...data.common_parsing_logic import align
 
 
 # reads environment from slippi file

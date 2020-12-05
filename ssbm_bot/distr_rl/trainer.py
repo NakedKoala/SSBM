@@ -7,9 +7,9 @@
 
 from .a3c import A3CTrainer
 from .communication import *
-from .input_manager import InputManager
 from .payloads import ProcExpPayload
 from ..data.common_parsing_logic import align
+from ..data.infra_adaptor import FrameContext
 
 import multiprocessing as mp
 import time
@@ -44,24 +44,24 @@ def process_exps_loop(
                              "lengths. Skipping.\n")
             continue
 
-        input_manager = InputManager(window_size, frame_delay)
-        for state in experiences.init_states:
-            input_manager.get(state, None)
+        last_action = None
+        frame_ctx = FrameContext(window_size, frame_delay)
+        for state, action in zip(experiences.init_states, experiences.init_actions):
+            frame_ctx.push_tensor(state, last_action)
+            last_action = action[0]
 
         states_inputs = []
         action_inputs = []
         for i in range(len(experiences.states)):
-            if i > 0:
-                state_t, action_t = input_manager.get(experiences.states[i], experiences.actions[i-1])
-            else:
-                state_t, action_t = input_manager.get(experiences.states[i], None)
+            state_t, action_t = frame_ctx.push_tensor(experiences.states[i], last_action)
+            last_action = experiences.actions[i][0]
             states_inputs.append(state_t)
             action_inputs.append(action_t)
 
         if experiences.final_state is None:
             final_state_t, final_action_t = None, None
         else:
-            final_state_t, final_action_t = input_manager.get(experiences.final_state, experiences.actions[-1])
+            final_state_t, final_action_t = frame_ctx.push_tensor(experiences.final_state, last_action)
 
         if frame_delay == 0:
             action_input_t = None

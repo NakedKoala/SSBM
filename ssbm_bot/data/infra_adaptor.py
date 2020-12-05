@@ -23,20 +23,46 @@ def convert_frame_to_input_tensor(frame, char_port, stage_id, include_opp_input=
     features_tensor, _, _, _ = proc_df(df, char_port, 0, SSBMDataset.button_press_indicator_dim, include_opp_input=include_opp_input)
     return features_tensor
 
-# used to store a queue of window_size frames during inference
+# used to store a queue of window_size stale frames for inference
+# also holds a queue of frame_delay last recent actions
+# NOTE does not do frame delay! must hand in stale tensors.
 class FrameContext(object):
-    def __init__(self, window_size=60):
+    def __init__(self, window_size=60, frame_delay=15):
         if window_size <= 0:
             raise AttributeError(
                 "FrameContext window_size must be positive"
             )
+        if frame_delay < 0:
+            raise AttributeError(
+                "FrameContext frame_delay must be non-negative"
+            )
         self.window_size = window_size
-        self.align_queue = deque()
+        self.frame_delay = frame_delay
+        self.state_queue = deque()
+        self.action_queue = deque()
 
-    # pushes frame into align queue and returns the entire queue as a tensor for input
-    def push_frame(self, frame, char_port, stage_id, include_opp_input):
-        frame_features = convert_frame_to_input_tensor(frame, char_port, stage_id, include_opp_input=include_opp_input)
-        return align(self.align_queue, self.window_size, frame_features[0])
+    # NOTE input should not have a batch dimension.
+    def push_tensor(self, cur_state, last_action):
+        cur_state_t = align(self.state_queue, self.window_size, cur_state).unsqueeze(dim=0)
+        if self.frame_delay > 0:
+            action_t = torch.zeros(7).float()
+            if last_action is not None:
+                stick_x, stick_y = c_idx.stick.to_stick(*last_action[1:4])
+                cstick_x, cstick_y = c_idx.stick.to_stick(*last_action[4:7])
+                trigger = c_idx.trigger.to_trigger(last_action[7])
+                # recent action format is:
+                # buttons, stick x, stick y, cstick x, cstick y, trigger x, trigger y
+                action_t = torch.Tensor([last_action[0], stick_x, stick_y, cstick_x, cstick_y, trigger, 0.0]).float()
+            action_align_t = align(self.action_queue, self.frame_delay, action_t).unsqueeze(dim=0)
+        else:
+            action_align_t = None
+
+        return cur_state_t, action_align_t
+
+    # pushes frame/last action into queue and returns the entire queue as a tensor for input
+    def push_frame(self, frame, char_port, stage_id, include_opp_input, last_action=None):
+        frame_features = convert_frame_to_input_tensor(frame, char_port, stage_id, include_opp_input=include_opp_input)[0]
+        return self.push_tensor(frame_features, last_action)
 
 def button_combination_idx_to_bitmap(idx):
     result = []

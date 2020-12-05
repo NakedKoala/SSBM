@@ -8,6 +8,7 @@ ExpPayload = namedtuple(
     'ExpPayload',
     [
         'init_states',  # list of window_size - 1 game states used to determine the first action
+        'init_actions', # list of window_size - 1 actions used to determine the first action
         'states',       # list of delayed game states (includes player inputs)
         'actions',      # model actions taken when given a delayed game state (so states and actions are aligned)
         'final_state',  # final state of this payload (1 more state frame, including the action taken); if None, then env finished.

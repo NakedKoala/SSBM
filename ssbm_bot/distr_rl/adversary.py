@@ -5,8 +5,9 @@
 
 from .a3c import A3CTrainer
 from .communication import *
-from .input_manager import InputManager
 from .payloads import AdversaryParamPayload, AdversaryInputPayload
+
+from ..data.infra_adaptor import FrameContext
 
 from collections import deque
 import sys
@@ -25,7 +26,7 @@ def adversary_loop(
         raise RuntimeError("Adversary received non-torch.nn.Module as first message!")
     adversary = A3CTrainer(model)
 
-    input_manager = InputManager(window_size, frame_delay)
+    frame_ctx = FrameContext(window_size, frame_delay)
     last_action = None
 
     while True:
@@ -34,14 +35,14 @@ def adversary_loop(
             adversary.model.load_state_dict(payload.state_dict)
 
             # assume new game started.
-            input_manager = InputManager(window_size, frame_delay)
+            frame_ctx = FrameContext(window_size, frame_delay)
             last_action = None
         elif isinstance(payload, AdversaryInputPayload):
             # payload is inputs - send output back.
             state, behavior = payload
 
             # get full state input
-            state_t, action_t = input_manager.get(state, last_action)
+            state_t, action_t = frame_ctx.push_tensor(state, None if last_action is None else last_action[0])
             last_action = adversary.choose_action((state_t, action_t), behavior)
 
             runner_socket.send(last_action)

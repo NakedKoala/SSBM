@@ -92,7 +92,7 @@ class SSBM_LSTM_Prob(nn.Module):
             )
             self.value_head = Sequential(*value_hidden_layers)
 
-     def forward(self, x, forced_action=None, behavior=2):
+     def forward(self, x, forced_action=None, behavior=1):
          if self.recent_actions:
             x, recent_actions = x
          # x -> (batch, seq_len, feat_dim)

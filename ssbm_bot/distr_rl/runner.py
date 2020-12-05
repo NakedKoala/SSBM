@@ -7,10 +7,10 @@
 
 from .adversary import adversary_loop
 from .communication import *
-from .input_manager import InputManager
 from .payloads import ExpPayload, AdversaryParamPayload, AdversaryInputPayload
 
 from ..data.common_parsing_logic import align
+from ..data.infra_adaptor import FrameContext
 from ..model.action_head import ActionHead
 
 from collections import deque
@@ -83,7 +83,7 @@ def run_loop(
         adversary_socket.send(AdversaryParamPayload(state_dict=model_dict), block=True)
 
         cur_frame = 1
-        input_manager = InputManager(window_size, frame_delay)
+        frame_ctx = FrameContext(window_size, frame_delay)
         stale_state_buffer = deque()
         actions_buffer = deque()
         rewards_buffer = deque()
@@ -95,6 +95,7 @@ def run_loop(
         # also include the first real state.
         for _ in range(window_size - 1):
             stale_state_buffer.append(torch.zeros_like(cur_state))
+            actions_buffer.append(torch.zeros(1, 8))
         stale_state_buffer.append(cur_state)
 
         # run the entire episode to completion
@@ -108,8 +109,8 @@ def run_loop(
             ), block=True)
 
             # get runner action
-            last_action = None if len(actions_buffer) == 0 else actions_buffer[-1]
-            state_t, action_t = input_manager.get(cur_state, last_action)
+            last_action = None if len(actions_buffer) == 0 else actions_buffer[-1][0]  # remove action batch dimension
+            state_t, action_t = frame_ctx.push_tensor(cur_state, last_action)
             action = trainer.choose_action((state_t, action_t), ActionHead.DEFAULT)
             # experience processor expects batch dimension - don't reshape
             actions_buffer.append(action)
@@ -130,7 +131,10 @@ def run_loop(
                     stale_state_buffer, window_size-1, len(stale_state_buffer)
                 ))
                 init_states = list(islice(stale_state_buffer, window_size-1))
-                actions = list(actions_buffer)
+                actions = list(islice(
+                    actions_buffer, window_size-1, len(actions_buffer)
+                ))
+                init_actions = list(islice(actions_buffer, window_size-1))
                 rewards = list(rewards_buffer)
 
                 if done:
@@ -140,6 +144,7 @@ def run_loop(
 
                 exp_payload = ExpPayload(
                     init_states=init_states,
+                    init_actions=init_actions,
                     states=stale_states,
                     actions=actions,
                     final_state=final_state,
@@ -164,7 +169,8 @@ def run_loop(
             while len(stale_state_buffer) >= send_exp_every + window_size:
                 # send_exp_every + (window_size-1) + 1 (for next frame)
                 stale_state_buffer.popleft()
-            while len(actions_buffer) >= send_exp_every:
+            while len(actions_buffer) >= send_exp_every + (window_size - 1):
+                # action added to buffer before sending to trainer
                 actions_buffer.popleft()
             while len(rewards_buffer) >= send_exp_every:
                 rewards_buffer.popleft()
