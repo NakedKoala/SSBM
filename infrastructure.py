@@ -51,10 +51,10 @@ class MeleeAI:
         self.model = SSBM_LSTM_Prob(
             action_embedding_dim = 100, hidden_size = 256,
             num_layers = 1, bidirectional=False, dropout_p=0.2,
-            out_hidden_sizes=out_hidden_sizes, recent_actions=True,
+            out_hidden_sizes=out_hidden_sizes, recent_actions=False,
             attention=False, include_opp_input=False, latest_state_reminder=False,
         )
-        self.model.load_state_dict(torch.load('./weights/lstm_recent_action_no_opp_input_delay_15_2020_12_05.pth',  map_location=lambda storage, loc: storage))
+        self.model.load_state_dict(torch.load('./weights/lstm_recent_action_no_opp_input_delay_0_2020_12_05.pth',  map_location=lambda storage, loc: storage))
         self.model.eval()
         # self.model.load_state_dict(torch.load('./weights/lstm_fd1_wz30_noshuffle_reminder.pth',  map_location=lambda storage, loc: storage))
 
@@ -125,18 +125,21 @@ class MeleeAI:
     def input_model_commands(self, frame, stage_id):
         self.state_buffer.append(frame)
 
-        if len(self.state_buffer) <= self.frame_delay:
-            stale_frame = torch.zeros(self.model.in_dim)
-            action = None if self.frame_delay == 0 else torch.zeros(1, self.frame_delay, 7)
-            model_input = (torch.zeros(1, self.window_size, self.model.in_dim), action)
+        if self.frame_delay > 0:
+            if len(self.state_buffer) <= self.frame_delay:
+                stale_frame = torch.zeros(self.model.in_dim)
+                action = None if self.frame_delay == 0 else torch.zeros(1, self.frame_delay, 7)
+                model_input = (torch.zeros(1, self.window_size, self.model.in_dim), action)
+            else:
+                stale_frame = self.state_buffer.popleft()
+                model_input = self.frame_ctx.push_frame(frame, char_port=1, stage_id=stage_id, include_opp_input=False, last_action=self.last_model_output)
         else:
-            stale_frame = self.state_buffer.popleft()
-            model_input = self.frame_ctx.push_frame(frame, char_port=1, stage_id=stage_id, include_opp_input=False, last_action=self.last_model_output)
+            model_input, _ = self.frame_ctx.push_frame(frame, char_port=1, stage_id=stage_id, include_opp_input=False, last_action=None)
 
 
         if self.action_frequence == None or self.frameCount % self.action_frequence == 0:
             # action_frequence == None -> we want action every frame
-            _, choices, _ = self.model(model_input, behavior=1)
+            _, choices, _ = self.model(model_input, behavior=0)
             self.last_model_output = choices[0]
             commands = convert_action_state_to_command(choices[0])
 
@@ -283,5 +286,5 @@ class MeleeAI:
 
 
 if __name__ == "__main__":
-    agent = MeleeAI(action_frequence=1, window_size=60, frame_delay=15)
+    agent = MeleeAI(action_frequence=1, window_size=60, frame_delay=0)
     agent.start()
