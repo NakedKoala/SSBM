@@ -72,7 +72,7 @@ def proc_button_press(buttons_values_np, button_press_indicator_dim, bitmap=Fals
 
 
             if len(bits) > 12 :
-                bits = bits[1:]
+                bits = bits[-12:]
 
             padded_len = button_press_indicator_dim - len(bits)
 
