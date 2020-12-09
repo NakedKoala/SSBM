@@ -26,7 +26,7 @@ class SSBMDataset(Dataset):
     button_press_indicator_dim = 12
     def __init__(
         self, src_dir, char_id, device, window_size=0, frame_delay=15, output_recent_actions=False, ds_type=None,
-        include_opp_input=True
+        include_opp_input=True, drop_beginning=False
     ):
         torch.manual_seed(0)
         self.csv_files = [ os.path.join(src_dir, fname) for fname in os.listdir(src_dir) if '.csv' in fname]
@@ -42,6 +42,9 @@ class SSBMDataset(Dataset):
         self.device = device
 
         def add_data(df, port):
+            if drop_beginning:
+                df.drop(df.head(200).index, inplace=True)
+
             features, cts_targets, bin_cls_targets, recent_actions = proc_df(
                 df, port, self.frame_delay, SSBMDataset.button_press_indicator_dim,
                 include_opp_input=self.include_opp_input

@@ -147,7 +147,7 @@ def proc_df(df, char_port, frame_delay, button_press_indicator_dim, include_opp_
         num_examples = len(char_features_df)
         char_features_np = char_features_df.to_numpy()
         opp_features_np = opp_features_df.to_numpy()
-        features_list = [df_char['stage'].to_numpy().reshape(-1, 1)]
+        features_list = [df_char.index.to_numpy().reshape(-1, 1), df_char['stage'].to_numpy().reshape(-1, 1)]
         features_list.extend([char_features_np[:, 0:3], char_cmd_button_targets_np.reshape(-1, 1), opp_features_np[:, 0:3]])
         if include_opp_input:
             features_list.append(opp_cmd_button_targets_np.reshape(-1, 1))
@@ -176,11 +176,11 @@ def proc_df(df, char_port, frame_delay, button_press_indicator_dim, include_opp_
 
         features_tensor, cts_targets_tensor, char_button_targets_tensor = torch.from_numpy(features_np), torch.from_numpy(cts_targets_np), torch.from_numpy(char_target_button_targets_np)
 
-        # normalize continuous features
+        # normalize continuous features (except frame index)
         if include_opp_input:
-            features_tensor[:,9:] = scale(features_tensor[:,9:])
+            features_tensor[:,10:] = scale(features_tensor[:,10:])
         else:
-            features_tensor[:,8:] = scale(features_tensor[:,8:], include_opp_input=False)
+            features_tensor[:,9:] = scale(features_tensor[:,9:], include_opp_input=False)
 
         recent_actions_tensor = torch.from_numpy(recent_actions_np)
         # import pdb
@@ -189,9 +189,9 @@ def proc_df(df, char_port, frame_delay, button_press_indicator_dim, include_opp_
         assert(recent_actions_tensor.shape[1] == 6 + 1)
         # assert(char_button_targets_tensor.shape[1] == 5)
         if include_opp_input:
-            assert(features_tensor.shape[1] == 19 * 2 + 7 * 2 + 1)
+            assert(features_tensor.shape[1] == 19 * 2 + 7 * 2 + 1 + 1)
         else:
-            assert(features_tensor.shape[1] == (19 * 2) + 7 * 1 + 1)
+            assert(features_tensor.shape[1] == (19 * 2) + 7 * 1 + 1 + 1)
 
         # import pdb
         # pdb.set_trace()

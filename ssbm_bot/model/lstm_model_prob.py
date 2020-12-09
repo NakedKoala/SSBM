@@ -9,8 +9,8 @@ from .action_head import ActionHead
 
 class SSBM_LSTM_Prob(nn.Module):
      action_state_dim = 383
-     input_dim = 53
-     no_opp_input_dim = 46
+     input_dim = 54
+     no_opp_input_dim = 47
      recent_actions_dim = 7
      num_embedding_features = 9
      no_opp_num_emb_feats = 8
@@ -100,9 +100,9 @@ class SSBM_LSTM_Prob(nn.Module):
          # position and direction
          if self.latest_state_reminder:
             if self.include_opp_input:
-                latest_state = torch.cat([x[:, -1, 9:15], x[:, -1, 25:31]], dim=1)
+                latest_state = torch.cat([x[:, -1, 10:16], x[:, -1, 26:32]], dim=1)
             else:
-                latest_state = torch.cat([x[:, -1, 8:14], x[:, -1, 24:30]], dim=1)
+                latest_state = torch.cat([x[:, -1, 9:15], x[:, -1, 25:31]], dim=1)
 
          # import pdb
          # pdb.set_trace()
@@ -110,7 +110,8 @@ class SSBM_LSTM_Prob(nn.Module):
          batch_size = x.shape[0]
          seq_len = x.shape[1]
 
-         embed_indices, regular_feat = x[:,:,0:self.num_emb_feats].long(), x[:,:,self.num_emb_feats:]
+         embed_indices = x[:,:,1:1+self.num_emb_feats].long()
+         regular_feat = torch.cat([x[:,:,0].unsqueeze(dim=-1), x[:,:,1+self.num_emb_feats:]], axis=-1)
 
          # import pdb; pdb.set_trace()
          # stage | (player) state state character button | (opponent) state state character [button]
