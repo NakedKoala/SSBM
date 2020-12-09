@@ -65,7 +65,8 @@ class SSBMDataset(Dataset):
         for csv_path in tqdm(self.csv_files, position=0, leave=True):
             full = False
             try:
-                df = pd.read_csv(csv_path, index_col="frame_index")
+                # df = pd.read_csv(csv_path, index_col="frame_index")
+                df = pd.read_csv(csv_path)
                 for port in range(4):
                     if ((df['port'] == port) & (df['post_character'] == char_id)).any():
                         if add_data(df, port):
