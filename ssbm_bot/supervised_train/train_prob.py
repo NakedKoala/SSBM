@@ -195,7 +195,7 @@ def train_eval_common_loop(model, dataloader, held_input_loss_factor, eval_behav
     print_stats()
     return total_loss, correct_btn, correct_coarse, correct_fine, correct_stick, correct_cstick, correct_trigger
 
-def eval(model, val_dl, held_ipput_loss_factor, eval_behavior, device):
+def eval(model, val_dl, held_input_loss_factor, eval_behavior, device):
     train_eval_common_loop(model, val_dl, held_input_loss_factor, eval_behavior, device)
 
 def train(model, trn_dl, val_dl, epochs, held_input_loss_factor, eval_behavior, print_out_freq, compute_acc, device, initial_lr=0.01):
