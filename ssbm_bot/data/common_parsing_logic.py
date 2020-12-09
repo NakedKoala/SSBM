@@ -105,6 +105,8 @@ def proc_button_press(buttons_values_np, button_press_indicator_dim, bitmap=Fals
 
         return button_targets_np
 
+# returns a feature/action tensor used for padding sequence inputs
+# action tensors are 0, while feature tensors are 0, except for the frame feature, which is set to -200
 def get_dummy_tensor(action=False, include_opp_input=True, like=None):
     if action:
         actions = torch.zeros(7).float()

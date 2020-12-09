@@ -149,7 +149,6 @@ class SSBMDataset(Dataset):
             held_input = torch.zeros(1)
 
         # at least one frame must exist
-        # TODO add a big negative number representing frame to zero tensors?
         output = ()
         if self.window_size > 1:
             assert(frame_features.shape[0] > 0)

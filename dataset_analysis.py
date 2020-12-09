@@ -15,7 +15,7 @@ trn_ds = SSBMDataset(src_dir="../test-dataset-csv-2", char_id=2, window_size=60,
 num_ex = 0
 num_match = 0
 for ex in trn_ds:
-    features, cts_targets, btn_target, recent_action = ex
+    features, cts_targets, btn_target, _, recent_action = ex
     # look over a range of recent frames to look for one identical to the target
     for i in range(1, 2):
         recent_action_frame = recent_action[-i]
