@@ -27,7 +27,7 @@ def convert_frame_to_input_tensor(frame, char_port, stage_id, include_opp_input=
 # also holds a queue of frame_delay last recent actions
 # NOTE does not do frame delay! must hand in stale tensors.
 class FrameContext(object):
-    def __init__(self, window_size=60, frame_delay=15):
+    def __init__(self, window_size=60, frame_delay=15, include_opp_input=False):
         if window_size <= 0:
             raise AttributeError(
                 "FrameContext window_size must be positive"
@@ -40,10 +40,11 @@ class FrameContext(object):
         self.frame_delay = frame_delay
         self.state_queue = deque()
         self.action_queue = deque()
+        self.include_opp_input = include_opp_input
 
     # NOTE input should not have a batch dimension.
     def push_tensor(self, cur_state, last_action):
-        cur_state_t = align(self.state_queue, self.window_size, cur_state).unsqueeze(dim=0)
+        cur_state_t = align(self.state_queue, self.window_size, cur_state, action=False, include_opp_input=self.include_opp_input).unsqueeze(dim=0)
         if self.frame_delay > 0:
             action_t = torch.zeros(7).float()
             if last_action is not None:
@@ -53,7 +54,7 @@ class FrameContext(object):
                 # recent action format is:
                 # buttons, stick x, stick y, cstick x, cstick y, trigger x, trigger y
                 action_t = torch.Tensor([last_action[0], stick_x, stick_y, cstick_x, cstick_y, trigger, 0.0]).float()
-            action_align_t = align(self.action_queue, self.frame_delay, action_t).unsqueeze(dim=0)
+            action_align_t = align(self.action_queue, self.frame_delay, action_t, action=True, include_opp_input=self.include_opp_input).unsqueeze(dim=0)
         else:
             action_align_t = None
 

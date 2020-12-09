@@ -9,7 +9,7 @@ from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
 import traceback
 
-from .common_parsing_logic import proc_df, align, scale
+from .common_parsing_logic import proc_df, get_dummy_tensor
 
 
 def find_le_idx(a, x):
@@ -125,7 +125,7 @@ class SSBMDataset(Dataset):
             first_recent_action_idx = idx - self.frame_delay
             if frame_idx - self.frame_delay < 0:
                 for _ in range(self.frame_delay - frame_idx):
-                    recent_actions.append(torch.unsqueeze(torch.zeros_like(self.recent_actions[0]), 0))
+                    recent_actions.append(get_dummy_tensor(action=True, like=self.recent_actions[0]).unsqueeze(dim=0))
                 first_recent_action_idx = idx - frame_idx
             recent_actions.append(self.recent_actions[first_recent_action_idx:idx])
             recent_actions = torch.cat(recent_actions)
@@ -135,8 +135,9 @@ class SSBMDataset(Dataset):
         # determine if input was held
         if frame_idx == 0:
             # last action was empty
-            recent_btn = 0.0
-            recent_cts = torch.zeros(6).float()
+            action = get_dummy_tensor(action=True)
+            recent_btn = action[0].item()
+            recent_cts = action[1:]
         else:
             recent_btn = self.recent_actions[idx-1][0].item()
             recent_cts = self.recent_actions[idx-1][1:]
@@ -156,8 +157,7 @@ class SSBMDataset(Dataset):
                 # prepend with zeroes
                 features_list = []
                 for _ in range(self.window_size - frame_features.shape[0]):
-                    # add zero tensor of size (1,) + frame_features[0].shape
-                    features_list.append(torch.unsqueeze(torch.zeros_like(frame_features[0]), 0))
+                    features_list.append(get_dummy_tensor(action=False, include_opp_input=self.include_opp_input, like=frame_features[0]).unsqueeze(dim=0))
                 features_list.append(frame_features)
                 frame_features = torch.cat(features_list)
 

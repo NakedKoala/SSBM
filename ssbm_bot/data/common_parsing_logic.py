@@ -105,7 +105,22 @@ def proc_button_press(buttons_values_np, button_press_indicator_dim, bitmap=Fals
 
         return button_targets_np
 
-
+def get_dummy_tensor(action=False, include_opp_input=True, like=None):
+    if action:
+        actions = torch.zeros(7).float()
+        if like is not None:
+            actions = actions.to(like.device)
+        return actions
+    else:
+        if include_opp_input:
+            features = torch.zeros(54).float()
+        else:
+            features = torch.zeros(47).float()
+        # initial frame
+        features[0] = -200
+        if like is not None:
+            features = features.to(like.device)
+        return features
 
 def proc_df(df, char_port, frame_delay, button_press_indicator_dim, include_opp_input=True, dist=True):
 
@@ -199,14 +214,14 @@ def proc_df(df, char_port, frame_delay, button_press_indicator_dim, include_opp_
         return features_tensor.float(), cts_targets_tensor.float(),  char_button_targets_tensor.float(), \
             recent_actions_tensor.float()
 
-def _fix_align_queue(align_queue, window_size, tensor_shape):
+def _fix_align_queue(align_queue, window_size, action, include_opp_input):
     for _ in range(window_size - len(align_queue)):
-        align_queue.appendleft(torch.zeros(*tensor_shape))
+        align_queue.appendleft(get_dummy_tensor(action=action, include_opp_input=include_opp_input))
 
 # align_queue is deque
-def align(align_queue, window_size, new_frame):
+def align(align_queue, window_size, new_frame, action=False, include_opp_input=True):
     if len(align_queue) < window_size:
-        _fix_align_queue(align_queue, window_size, new_frame.shape)
+        _fix_align_queue(align_queue, window_size, action, include_opp_input)
     align_queue.popleft()
     align_queue.append(new_frame)
     return torch.stack(tuple(align_queue))
