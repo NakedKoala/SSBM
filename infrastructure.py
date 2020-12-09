@@ -51,10 +51,10 @@ class MeleeAI:
         self.model = SSBM_LSTM_Prob(
             action_embedding_dim = 100, hidden_size = 256,
             num_layers = 1, bidirectional=False, dropout_p=0.2,
-            out_hidden_sizes=out_hidden_sizes, recent_actions=False,
+            out_hidden_sizes=out_hidden_sizes, recent_actions=True,
             attention=False, include_opp_input=False, latest_state_reminder=False,
         )
-        self.model.load_state_dict(torch.load('./weights/lstm_recent_action_no_opp_input_delay_0_2020_12_05.pth',  map_location=lambda storage, loc: storage))
+        self.model.load_state_dict(torch.load('./weights/lstm_recent_action_no_opp_input_delay_15_2020_12_09_falcon_v_falcon_fd.pth',  map_location=lambda storage, loc: storage))
         self.model.eval()
         # self.model.load_state_dict(torch.load('./weights/lstm_fd1_wz30_noshuffle_reminder.pth',  map_location=lambda storage, loc: storage))
 
@@ -286,5 +286,5 @@ class MeleeAI:
 
 
 if __name__ == "__main__":
-    agent = MeleeAI(action_frequence=1, window_size=60, frame_delay=0)
+    agent = MeleeAI(action_frequence=None, window_size=60, frame_delay=15)
     agent.start()

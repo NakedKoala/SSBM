@@ -92,16 +92,20 @@ def convert_idx_to_one_hot(indices_t):
     ), 1)
 
 
-def train_eval_common_compute(model, batch, eval_behavior, compute_acc, device):
-    if len(batch) == 3:
-        features, cts_targets, button_targets = batch
+def train_eval_common_compute(model, batch, held_input_loss_factor, eval_behavior, compute_acc, device):
+    if len(batch) == 4:
+        features, cts_targets, button_targets, held_input = batch
         inputs = features.to(device)
     else:
-        features, cts_targets, button_targets, recent_actions = batch
+        features, cts_targets, button_targets, held_input, recent_actions = batch
         inputs = (features.to(device), recent_actions.to(device))
 
+    button_targets = button_targets.long()
+
+    loss_factor_t = (held_input_loss_factor-1.0) * held_input.to(device) + 1.0
+
     cts_idx = convert_cts_to_idx(cts_targets)
-    all_targets = (button_targets.long(),) + cts_idx
+    all_targets = (button_targets,) + cts_idx
     forced_action = torch.cat(
         tuple(target.unsqueeze(1) for target in all_targets),
         axis=1
@@ -130,11 +134,12 @@ def train_eval_common_compute(model, batch, eval_behavior, compute_acc, device):
     action_logits, _, _ = model(inputs, forced_action=forced_action)
     loss = torch.zeros(1).to(device)
     for logits, target in zip(action_logits, all_targets):
-        loss += cross_entropy(logits, target.to(device))
+        loss_unreduced = cross_entropy(logits, target.to(device), reduction='none')
+        loss += (loss_unreduced * loss_factor_t).mean()
 
     return loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger
 
-def train_eval_common_loop(model, dataloader, eval_behavior, device, compute_acc=True, print_out_freq=None, optim=None):
+def train_eval_common_loop(model, dataloader, held_input_loss_factor, eval_behavior, device, compute_acc=True, print_out_freq=None, optim=None):
     model.to(device)
     if optim:
         model.train()
@@ -168,13 +173,13 @@ def train_eval_common_loop(model, dataloader, eval_behavior, device, compute_acc
         if optim:
             optim.zero_grad()
             loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger = \
-                train_eval_common_compute(model, batch, eval_behavior, compute_acc, device)
+                train_eval_common_compute(model, batch, held_input_loss_factor, eval_behavior, compute_acc, device)
             loss.backward()
             optim.step()
         else:
             with torch.no_grad():
                 loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger = \
-                    train_eval_common_compute(model, batch, eval_behavior, compute_acc, device)
+                    train_eval_common_compute(model, batch, held_input_loss_factor, eval_behavior, compute_acc, device)
 
         total_loss += loss.item()
         correct_btn += c_btn
@@ -190,10 +195,10 @@ def train_eval_common_loop(model, dataloader, eval_behavior, device, compute_acc
     print_stats()
     return total_loss, correct_btn, correct_coarse, correct_fine, correct_stick, correct_cstick, correct_trigger
 
-def eval(model, val_dl, eval_behavior, device):
-    train_eval_common_loop(model, val_dl, eval_behavior, device)
+def eval(model, val_dl, held_ipput_loss_factor, eval_behavior, device):
+    train_eval_common_loop(model, val_dl, held_input_loss_factor, eval_behavior, device)
 
-def train(model, trn_dl, val_dl, epoch, eval_behavior, print_out_freq, compute_acc, device, initial_lr=0.01):
+def train(model, trn_dl, val_dl, epochs, held_input_loss_factor, eval_behavior, print_out_freq, compute_acc, device, initial_lr=0.01):
     def lr_schedule(epoch):
         if epoch < 3:
             return 1
@@ -206,10 +211,10 @@ def train(model, trn_dl, val_dl, epoch, eval_behavior, print_out_freq, compute_a
     optim = Adam(model.parameters(), lr=initial_lr, weight_decay=1e-5)
     scheduler = LambdaLR(optim, lr_lambda=[lr_schedule])
 
-    for i in range(epoch):
+    for i in range(epochs):
         print(f'***TRAIN EPOCH {i}***', flush=True)
-        train_eval_common_loop(model, trn_dl, eval_behavior, device, optim=optim, print_out_freq=print_out_freq, compute_acc=compute_acc)
+        train_eval_common_loop(model, trn_dl, held_input_loss_factor, eval_behavior, device, optim=optim, print_out_freq=print_out_freq, compute_acc=compute_acc)
 
         print(f'***EVAL EPOCH {i}***', flush=True)
-        eval(model, val_dl, eval_behavior, device)
+        eval(model, val_dl, held_input_loss_factor, eval_behavior, device)
         scheduler.step()

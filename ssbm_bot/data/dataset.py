@@ -132,7 +132,23 @@ class SSBMDataset(Dataset):
         else:
             recent_actions = None
 
+        # determine if input was held
+        if frame_idx == 0:
+            # last action was empty
+            recent_btn = 0.0
+            recent_cts = torch.zeros(6).float()
+        else:
+            recent_btn = self.recent_actions[idx-1][0].item()
+            recent_cts = self.recent_actions[idx-1][1:]
+
+        if recent_btn == self.bin_cls_targets[idx].item() and \
+            torch.equal(recent_cts, self.cts_targets[idx]):
+            held_input = torch.ones(1)
+        else:
+            held_input = torch.zeros(1)
+
         # at least one frame must exist
+        # TODO add a big negative number representing frame to zero tensors?
         output = ()
         if self.window_size > 1:
             assert(frame_features.shape[0] > 0)
@@ -145,11 +161,11 @@ class SSBMDataset(Dataset):
                 features_list.append(frame_features)
                 frame_features = torch.cat(features_list)
 
-            output = (frame_features, self.cts_targets[idx], self.bin_cls_targets[idx])
+            output = (frame_features, self.cts_targets[idx], self.bin_cls_targets[idx], held_input)
         else:
             # import pdb
             # pdb.set_trace()
-            output = ( frame_features.squeeze(0), self.cts_targets[idx], self.bin_cls_targets[idx])
+            output = (frame_features.squeeze(0), self.cts_targets[idx], self.bin_cls_targets[idx], held_input)
 
         if self.output_recent_actions:
             output = output + (recent_actions,)
