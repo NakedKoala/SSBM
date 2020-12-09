@@ -164,7 +164,7 @@ def proc_df(df, char_port, frame_delay, button_press_indicator_dim, include_opp_
         num_examples = len(char_features_df)
         char_features_np = char_features_df.to_numpy()
         opp_features_np = opp_features_df.to_numpy()
-        features_list = [df_char.index.to_numpy().reshape(-1, 1), df_char['stage'].to_numpy().reshape(-1, 1)]
+        features_list = [df_char['frame_index'].to_numpy().reshape(-1, 1), df_char['stage'].to_numpy().reshape(-1, 1)]
         features_list.extend([char_features_np[:, 0:3], char_cmd_button_targets_np.reshape(-1, 1), opp_features_np[:, 0:3]])
         if include_opp_input:
             features_list.append(opp_cmd_button_targets_np.reshape(-1, 1))

@@ -8,6 +8,7 @@ from ssbm_bot.model.mvp_model import SSBM_MVP
 from ssbm_bot.model.lstm_model import SSBM_LSTM
 from ssbm_bot.model.lstm_model_prob import SSBM_LSTM_Prob
 from ssbm_bot.data.infra_adaptor import convert_frame_to_input_tensor, convert_output_tensor_to_command, FrameContext, convert_action_state_to_command
+from ssbm_bot.data.common_parsing_logic import get_dummy_tensor
 from collections import deque
 
 DOLPHIN_EXE_PATH = '/Applications/Slippi Dolphin.app' # change to yours
@@ -35,7 +36,7 @@ class MeleeAI:
             self.index = frameIndex
 
 
-    def __init__(self, action_frequence, window_size, frame_delay):
+    def __init__(self, action_frequence, window_size, frame_delay, include_opp_input):
         # self.model = SSBM_MVP(100, 50)
         # self.model.load_state_dict(torch.load('./weights/mvp_fit5_EP7_VL0349.pth',  map_location=lambda storage, loc: storage))
         out_hidden_sizes=[
@@ -52,15 +53,16 @@ class MeleeAI:
             action_embedding_dim = 100, hidden_size = 256,
             num_layers = 1, bidirectional=False, dropout_p=0.2,
             out_hidden_sizes=out_hidden_sizes, recent_actions=True,
-            attention=False, include_opp_input=False, latest_state_reminder=False,
+            attention=False, include_opp_input=include_opp_input, latest_state_reminder=False,
         )
-        self.model.load_state_dict(torch.load('./weights/lstm_recent_action_no_opp_input_delay_15_2020_12_09_falcon_v_falcon_fd.pth',  map_location=lambda storage, loc: storage))
+        self.model.load_state_dict(torch.load('./weights/lstm_held_input_factor_no_opp_input_delay_15_2020_12_09_falcon_v_falcon_fd.pth',  map_location=lambda storage, loc: storage))
         self.model.eval()
         # self.model.load_state_dict(torch.load('./weights/lstm_fd1_wz30_noshuffle_reminder.pth',  map_location=lambda storage, loc: storage))
 
         self.frame_delay = frame_delay
         self.window_size = window_size
-        self.frame_ctx = FrameContext(window_size=window_size, frame_delay=frame_delay)
+        self.frame_ctx = FrameContext(window_size=window_size, frame_delay=frame_delay, include_opp_input=include_opp_input)
+        self.include_opp_input = include_opp_input
         self.state_buffer = deque()
         self.last_model_output = None
 
@@ -127,9 +129,10 @@ class MeleeAI:
 
         if self.frame_delay > 0:
             if len(self.state_buffer) <= self.frame_delay:
-                stale_frame = torch.zeros(self.model.in_dim)
-                action = None if self.frame_delay == 0 else torch.zeros(1, self.frame_delay, 7)
-                model_input = (torch.zeros(1, self.window_size, self.model.in_dim), action)
+                stale_states = [get_dummy_tensor(action=False, include_opp_input=self.include_opp_input)] * self.window_size
+                stale_states = torch.stack(stale_states).unsqueeze(dim=0)
+                action = None if self.frame_delay == 0 else torch.stack([get_dummy_tensor(action=True)] * self.frame_delay).unsqueeze(dim=0)
+                model_input = (stale_states, action)
             else:
                 stale_frame = self.state_buffer.popleft()
                 model_input = self.frame_ctx.push_frame(frame, char_port=1, stage_id=stage_id, include_opp_input=False, last_action=self.last_model_output)
@@ -139,7 +142,8 @@ class MeleeAI:
 
         if self.action_frequence == None or self.frameCount % self.action_frequence == 0:
             # action_frequence == None -> we want action every frame
-            _, choices, _ = self.model(model_input, behavior=0)
+            behavior = 0 if frame.index < 100 else 1
+            _, choices, _ = self.model(model_input, behavior=behavior)
             self.last_model_output = choices[0]
             commands = convert_action_state_to_command(choices[0])
 
@@ -286,5 +290,5 @@ class MeleeAI:
 
 
 if __name__ == "__main__":
-    agent = MeleeAI(action_frequence=None, window_size=60, frame_delay=15)
+    agent = MeleeAI(action_frequence=None, window_size=60, frame_delay=15, include_opp_input=False)
     agent.start()
