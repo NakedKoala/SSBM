@@ -121,7 +121,7 @@ def train_eval_common_compute(model, batch, held_input_loss_factor, eval_behavio
             category_match, _ = torch.min(
                 (choices == forced_action), dim=1
             )
-            c_match = category_match.sum()
+            c_match = category_match.sum().item()
 
             # was the model's choices correct logically?
             # i.e. the converted choice -> input is close to the actual target inputs
