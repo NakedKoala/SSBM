@@ -127,8 +127,15 @@ def train_eval_common_compute(model, batch, held_input_loss_factor, eval_behavio
             c_stick = c_stick.item()
             c_cstick = c_cstick.item()
             c_trigger = c_trigger.item()
+
+            # did the choices match the target categories?
+            # use min, so any non-equal row will result in 0 row.
+            category_match, _ = torch.min(
+                (choices == torch.stack(all_targets).transpose(0, 1)), dim=1
+            )
+            c_match = category_match.sum()
     else:
-        c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger = (0,) * 6
+        c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger, c_match = (0,) * 7
 
     # generate loss
     action_logits, _, _ = model(inputs, forced_action=forced_action)
@@ -137,7 +144,7 @@ def train_eval_common_compute(model, batch, held_input_loss_factor, eval_behavio
         loss_unreduced = cross_entropy(logits, target.to(device), reduction='none')
         loss += (loss_unreduced * loss_factor_t).mean()
 
-    return loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger
+    return loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger, c_match
 
 def train_eval_common_loop(model, dataloader, held_input_loss_factor, eval_behavior, device, compute_acc=True, print_out_freq=None, optim=None):
     model.to(device)
@@ -153,6 +160,7 @@ def train_eval_common_loop(model, dataloader, held_input_loss_factor, eval_behav
     correct_stick = 0
     correct_cstick = 0
     correct_trigger = 0
+    correct_match = 0
     num_batch = 0
     num_total = 0
 
@@ -165,20 +173,21 @@ def train_eval_common_loop(model, dataloader, held_input_loss_factor, eval_behav
                 f'fine acc: {correct_fine/num_total}, '
                 f'stick acc: {correct_stick/num_total}, '
                 f'cstick acc: {correct_cstick/num_total}, '
-                f'trigger acc: {correct_trigger/num_total}, ', flush=True)
+                f'trigger acc: {correct_trigger/num_total}, '
+                f'match acc: {correct_match/num_total} ', flush=True)
 
     for batch in tqdm(dataloader, position=0, leave=True):
         num_batch += 1
         num_total += batch[0].shape[0]
         if optim:
             optim.zero_grad()
-            loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger = \
+            loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger, c_match = \
                 train_eval_common_compute(model, batch, held_input_loss_factor, eval_behavior, compute_acc, device)
             loss.backward()
             optim.step()
         else:
             with torch.no_grad():
-                loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger = \
+                loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger, c_match = \
                     train_eval_common_compute(model, batch, held_input_loss_factor, eval_behavior, compute_acc, device)
 
         total_loss += loss.item()
@@ -188,12 +197,13 @@ def train_eval_common_loop(model, dataloader, held_input_loss_factor, eval_behav
         correct_stick += c_stick
         correct_cstick += c_cstick
         correct_trigger += c_trigger
+        correct_match += c_match
 
         if print_out_freq and num_batch % print_out_freq == 0:
             print_stats()
 
     print_stats()
-    return total_loss, correct_btn, correct_coarse, correct_fine, correct_stick, correct_cstick, correct_trigger
+    return total_loss, correct_btn, correct_coarse, correct_fine, correct_stick, correct_cstick, correct_trigger, correct_match
 
 def eval(model, val_dl, held_input_loss_factor, eval_behavior, device):
     train_eval_common_loop(model, val_dl, held_input_loss_factor, eval_behavior, device)
