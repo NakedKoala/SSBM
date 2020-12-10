@@ -131,7 +131,7 @@ def train_eval_common_compute(model, batch, held_input_loss_factor, eval_behavio
             # did the choices match the target categories?
             # use min, so any non-equal row will result in 0 row.
             category_match, _ = torch.min(
-                (choices == torch.stack(all_targets).transpose(0, 1)), dim=1
+                (choices == forced_action), dim=1
             )
             c_match = category_match.sum()
     else:
