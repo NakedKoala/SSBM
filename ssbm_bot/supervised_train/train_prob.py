@@ -115,7 +115,16 @@ def train_eval_common_compute(model, batch, held_input_loss_factor, eval_behavio
     if compute_acc:
         with torch.no_grad():
             _, choices, _ = model(inputs, behavior=eval_behavior)
-            # was the model's choices correct?
+
+            # did the choices match the target categories?
+            # use min, so any non-equal row will result in 0 row.
+            category_match, _ = torch.min(
+                (choices == forced_action), dim=1
+            )
+            c_match = category_match.sum()
+
+            # was the model's choices correct logically?
+            # i.e. the converted choice -> input is close to the actual target inputs
             choices = choices.to(button_targets.device) # assume button/cts_targets on the same device
             c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger = get_correct(
                 tuple(choices[:,i] for i in range(choices.shape[1])),
@@ -127,13 +136,6 @@ def train_eval_common_compute(model, batch, held_input_loss_factor, eval_behavio
             c_stick = c_stick.item()
             c_cstick = c_cstick.item()
             c_trigger = c_trigger.item()
-
-            # did the choices match the target categories?
-            # use min, so any non-equal row will result in 0 row.
-            category_match, _ = torch.min(
-                (choices == forced_action), dim=1
-            )
-            c_match = category_match.sum()
     else:
         c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger, c_match = (0,) * 7
 
