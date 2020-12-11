@@ -148,6 +148,7 @@ def train_eval_common_compute(model, batch, held_input_loss_factor, eval_behavio
 
     return loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger, c_match
 
+_MOVING_AVG_FACTOR = 0.99
 def train_eval_common_loop(model, dataloader, held_input_loss_factor, eval_behavior, device, compute_acc=True, print_out_freq=None, optim=None):
     model.to(device)
     if optim:
@@ -155,32 +156,36 @@ def train_eval_common_loop(model, dataloader, held_input_loss_factor, eval_behav
     else:
         model.eval()
 
-    total_loss = 0
-    correct_btn = 0
-    correct_coarse = 0
-    correct_fine = 0
-    correct_stick = 0
-    correct_cstick = 0
-    correct_trigger = 0
-    correct_match = 0
+    total_loss = None
+    correct_btn = None
+    correct_coarse = None
+    correct_fine = None
+    correct_stick = None
+    correct_cstick = None
+    correct_trigger = None
+    correct_match = None
     num_batch = 0
-    num_total = 0
 
     def print_stats():
         print(f'iter: {num_batch}, '
             f'loss: {total_loss/num_batch}, ', flush=True)
         if compute_acc:
-            print(f'button acc: {correct_btn/num_total}, '
-                f'coarse acc: {correct_coarse/num_total}, '
-                f'fine acc: {correct_fine/num_total}, '
-                f'stick acc: {correct_stick/num_total}, '
-                f'cstick acc: {correct_cstick/num_total}, '
-                f'trigger acc: {correct_trigger/num_total}, '
-                f'match acc: {correct_match/num_total} ', flush=True)
+            print(f'button acc: {correct_btn}, '
+                f'coarse acc: {correct_coarse}, '
+                f'fine acc: {correct_fine}, '
+                f'stick acc: {correct_stick}, '
+                f'cstick acc: {correct_cstick}, '
+                f'trigger acc: {correct_trigger}, '
+                f'match acc: {correct_match} ', flush=True)
+
+    def upd_moving_avg(old, new):
+        if old is None:
+            return new
+        return old * _MOVING_AVG_FACTOR + new * (1.0 - _MOVING_AVG_FACTOR)
 
     for batch in tqdm(dataloader, position=0, leave=True):
         num_batch += 1
-        num_total += batch[0].shape[0]
+        batch_size = batch[0].shape[0]
         if optim:
             optim.zero_grad()
             loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger, c_match = \
@@ -192,14 +197,14 @@ def train_eval_common_loop(model, dataloader, held_input_loss_factor, eval_behav
                 loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger, c_match = \
                     train_eval_common_compute(model, batch, held_input_loss_factor, eval_behavior, compute_acc, device)
 
-        total_loss += loss.item()
-        correct_btn += c_btn
-        correct_coarse += c_coarse
-        correct_fine += c_fine
-        correct_stick += c_stick
-        correct_cstick += c_cstick
-        correct_trigger += c_trigger
-        correct_match += c_match
+        total_loss = upd_moving_avg(total_loss, loss.item())
+        correct_btn = upd_moving_avg(correct_btn, c_btn/batch_size)
+        correct_coarse = upd_moving_avg(correct_coarse, c_coarse/batch_size)
+        correct_fine = upd_moving_avg(correct_fine, c_fine/batch_size)
+        correct_stick = upd_moving_avg(correct_stick, c_stick/batch_size)
+        correct_cstick = upd_moving_avg(correct_cstick, c_cstick/batch_size)
+        correct_trigger = upd_moving_avg(correct_trigger, c_trigger/batch_size)
+        correct_match = upd_moving_avg(correct_match, c_match/batch_size)
 
         if print_out_freq and num_batch % print_out_freq == 0:
             print_stats()
