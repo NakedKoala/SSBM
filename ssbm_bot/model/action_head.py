@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torch.nn import Embedding, Linear, Sequential, ReLU, Dropout, ModuleList
+from torch.nn import Embedding, Linear, Sequential, ReLU, Dropout, ModuleList, BatchNorm1d
 from torch.nn.functional import softmax
 from torch.distributions import Categorical, Uniform
 
@@ -30,7 +30,8 @@ class ActionHead(nn.Module):
                      [128, 128], # cstick magn
                      [256, 128], # trigger
                  ],
-                 buttons_emb=None
+                 buttons_emb=None,
+                 use_bn=False,
     ):
         super().__init__()
 
@@ -49,11 +50,18 @@ class ActionHead(nn.Module):
             last_in_size = total_in_size
             hidden_layers = []
             for size in hidden_sizes:
-                hidden_layers.extend((
-                    Linear(in_features=last_in_size, out_features=size),
-                    ReLU(),
-                    Dropout(p=0.2)
-                ))
+                if use_bn:
+                    hidden_layers.extend((
+                        Linear(in_features=last_in_size, out_features=size),
+                        BatchNorm1d(num_features=size),
+                        ReLU(),
+                    ))
+                else:
+                    hidden_layers.extend((
+                        Linear(in_features=last_in_size, out_features=size),
+                        ReLU(),
+                        Dropout(p=0.2)
+                    ))
                 last_in_size = size
             hidden_layers.append(Linear(in_features=last_in_size, out_features=out_size))
 
@@ -96,8 +104,6 @@ class ActionHead(nn.Module):
             category_probs = softmax(category_logits, dim=1)
 
             # sample distribution
-            # NOTE during RL training, occassionally randomly select an action to take
-            # for exploration
             if forced_action is not None:
                 category = forced_action[:,i].reshape(batch_size, -1)
             elif behavior == self.DEFAULT:
