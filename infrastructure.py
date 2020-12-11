@@ -311,6 +311,9 @@ class MeleeAI:
 
             self.frameCount += 1
 
+    def shutdown(self):
+        self.console.stop()
+
     def step(self): # RL only
         gamestate = self.next_state()
 
@@ -337,9 +340,8 @@ class MeleeAI:
                 continue
 
             if gamestate.menu_state == melee.enums.Menu.IN_GAME:
-                # if self.multiAgent:
-                #     return
-
+                if self.multiAgent:
+                    return
                 self.game_loop()
 
             elif gamestate.menu_state == melee.enums.Menu.CHARACTER_SELECT:
