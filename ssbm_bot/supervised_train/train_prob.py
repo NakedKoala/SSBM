@@ -168,7 +168,7 @@ def train_eval_common_loop(model, dataloader, held_input_loss_factor, eval_behav
 
     def print_stats():
         print(f'iter: {num_batch}, '
-            f'loss: {total_loss/num_batch}, ', flush=True)
+            f'loss: {total_loss}, ', flush=True)
         if compute_acc:
             print(f'button acc: {correct_btn}, '
                 f'coarse acc: {correct_coarse}, '
