@@ -36,7 +36,8 @@ class MeleeAI:
             self.index = frameIndex
 
 
-    def __init__(self, action_frequence, window_size, frame_delay, include_opp_input):
+    def __init__(self, action_frequence, window_size, frame_delay, include_opp_input, multiAgent, weights):
+        self.multiAgent = multiAgent
         # self.model = SSBM_MVP(100, 50)
         # self.model.load_state_dict(torch.load('./weights/mvp_fit5_EP7_VL0349.pth',  map_location=lambda storage, loc: storage))
         out_hidden_sizes=[
@@ -55,7 +56,7 @@ class MeleeAI:
             out_hidden_sizes=out_hidden_sizes, recent_actions=True,
             attention=False, include_opp_input=include_opp_input, latest_state_reminder=False,
         )
-        self.model.load_state_dict(torch.load('./weights/lstm_held_input_factor_no_opp_input_delay_15_2020_12_09_falcon_v_falcon_fd.pth',  map_location=lambda storage, loc: storage))
+        self.model.load_state_dict(torch.load(weights, map_location=lambda storage, loc: storage))
         self.model.eval()
         # self.model.load_state_dict(torch.load('./weights/lstm_fd1_wz30_noshuffle_reminder.pth',  map_location=lambda storage, loc: storage))
 
@@ -71,6 +72,7 @@ class MeleeAI:
 
         self.frames = []
 
+        self.previousStocks = [3, 3]
         self.previousPosition = [(0, 0), (0, 0)]
         self.previousDamage = [0, 0]
         self.previousFacing = [True, False]
@@ -95,7 +97,10 @@ class MeleeAI:
         self.console = melee.Console(path=DOLPHIN_EXE_PATH, blocking_input=True)
         self.console.render = True
         self.controller = melee.Controller(self.console, 2)
-        self.console.run()
+        if multiAgent:
+            self.controller1 = melee.Controller(self.console, 1)
+
+        self.console.run(iso_path="/Users/nathan/Downloads/meleeIso.iso") #TODO: modularize? or set your )
 
         print("Connecting to console...")
         if not self.console.connect():
@@ -107,6 +112,15 @@ class MeleeAI:
             print("ERROR: Failed to connect the controller.")
             sys.exit(-1)
         print("Controller connected")
+
+        if multiAgent:
+            print("Connecting controller2 to console...")
+            if not self.controller1.connect():
+                print("ERROR: Failed to connect the controller.")
+                sys.exit(-1)
+
+            print("Controller2 connected")
+
         self.dataframe_dict = {
             'pre_joystick_x': [],
             'pre_joystick_y': [],
@@ -118,6 +132,13 @@ class MeleeAI:
             'top2_idx': [],
             'top3_idx': []
             }
+
+        self.rewards = {
+            "win": 1000,
+            "stock": 200,
+            "timebonus": 300,
+            "damage": 1,
+        }
 
     def next_state(self):
         # print(time.time() - self.time)
@@ -171,6 +192,22 @@ class MeleeAI:
         self.controller.tilt_analog_unit(melee.enums.Button.BUTTON_MAIN, commands["main_stick"][0], commands["main_stick"][1])
         self.controller.tilt_analog_unit(melee.enums.Button.BUTTON_C, commands["c_stick"][0], commands["c_stick"][1])
 
+    def preform_action(self, action):
+        commands = convert_action_state_to_command(action[0])
+
+        # TODO: Add extra checks from above and refactor into single function
+
+        for button, pressed in commands["button"].items():
+            if pressed == 1:
+                self.controller.press_button(button)
+            else:
+                self.controller.release_button(button)
+
+        self.controller.press_shoulder(melee.enums.Button.BUTTON_L, commands["l_shoulder"] if commands["l_shoulder"] > 0 else 0)
+        self.controller.press_shoulder(melee.enums.Button.BUTTON_R, commands["r_shoulder"] if commands["r_shoulder"] > 0 else 0)
+
+        self.controller.tilt_analog_unit(melee.enums.Button.BUTTON_MAIN, commands["main_stick"][0], commands["main_stick"][1])
+        self.controller.tilt_analog_unit(melee.enums.Button.BUTTON_C, commands["c_stick"][0], commands["c_stick"][1])
 
     def parse_gamestate(self, gamestate):
         frame = self.MeleeFrame(gamestate.frame)
@@ -239,6 +276,12 @@ class MeleeAI:
             frame.ports[i - 1].leader.post.state_age = playerState.action_frame
             frame.ports[i - 1].leader.post.state = playerState.action.value
 
+            frame.ports[i-1].changes = {
+                "damage": playerState.percent - self.previousDamage[i - 1],
+                "stocks": playerState.stock - self.previousStocks[i - 1]
+            }
+
+            self.previousStocks[i - 1] = playerState.stock
             self.previousPosition[i - 1] = (playerState.x, playerState.y)
             self.previousFacing[i - 1] = playerState.facing
             self.previousDamage[i - 1] = playerState.percent
@@ -268,6 +311,23 @@ class MeleeAI:
 
             self.frameCount += 1
 
+    def step(self): # RL only
+        gamestate = self.next_state()
+
+        frame = self.parse_gamestate(gamestate)
+        self.frameCount += 1
+
+        reward = 0
+
+        # TODO: check if game is over (gamestate = in menu?)
+        reward += frame.ports[1].damage * self.rewards["damage"]
+        reward -= frame.ports[0].damage * self.rewards["damage"]
+
+        reward += frame.ports[0].stocks * self.rewards["stock"]
+        reward -= frame.ports[1].damage * self.rewards["stock"]
+
+        return frame, reward, False # TODO: return done instead of False
+
     def start(self):
 
         while True:
@@ -277,18 +337,25 @@ class MeleeAI:
                 continue
 
             if gamestate.menu_state == melee.enums.Menu.IN_GAME:
+                # if self.multiAgent:
+                #     return
+
                 self.game_loop()
 
             elif gamestate.menu_state == melee.enums.Menu.CHARACTER_SELECT:
-                melee.menuhelper.MenuHelper.choose_character(melee.enums.Character.CPTFALCON, gamestate, self.controller, swag=True)
+                melee.menuhelper.MenuHelper.choose_character(melee.enums.Character.CPTFALCON, gamestate, self.controller, start=True)
+
+                if self.multiAgent:
+                    melee.menuhelper.MenuHelper.choose_character(melee.enums.Character.CPTFALCON, gamestate, self.controller1, start=True)
 
             elif gamestate.menu_state == melee.enums.Menu.STAGE_SELECT:
                 melee.menuhelper.MenuHelper.choose_stage(melee.enums.Stage.FINAL_DESTINATION, gamestate, self.controller)
 
             else:
-                self.controller.release_all()
+                melee.menuhelper.MenuHelper.choose_versus_mode(gamestate, self.controller)
+                # self.controller.release_all()
 
 
 if __name__ == "__main__":
-    agent = MeleeAI(action_frequence=None, window_size=60, frame_delay=15, include_opp_input=False)
+    agent = MeleeAI(action_frequence=None, window_size=60, frame_delay=15, include_opp_input=False, multiAgent=True, weights='./weights/lstm_held_input_factor_no_opp_input_delay_15_2020_12_09_falcon_v_falcon_fd.pth')
     agent.start()
