@@ -43,7 +43,7 @@ class SSBMDataset(Dataset):
 
         def add_data(df, port):
             if drop_beginning:
-                df.drop(df.head(200).index, inplace=True)
+                df.drop(df.head(400).index, inplace=True)
 
             features, cts_targets, bin_cls_targets, recent_actions = proc_df(
                 df, port, self.frame_delay, SSBMDataset.button_press_indicator_dim,
