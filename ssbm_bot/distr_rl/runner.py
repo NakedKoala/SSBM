@@ -73,7 +73,7 @@ def run_loop(
             break
 
         # wait for latest model before starting the episode
-        _check_model_updates(trainer.model, param_socket, block=True)
+        # _check_model_updates(trainer.model, param_socket, block=True)
 
         if len(old_agents) == 0:
             old_agents.append(trainer.model.state_dict())

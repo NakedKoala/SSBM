@@ -406,8 +406,3 @@ class MeleeAI:
             else:
                 melee.menuhelper.MenuHelper.choose_versus_mode(gamestate, self.controller)
                 # self.controller.release_all()
-
-
-if __name__ == "__main__":
-    agent = MeleeAI(action_frequence=None, window_size=60, frame_delay=15, include_opp_input=False, multiAgent=True, weights='./weights/lstm_held_input_factor_no_opp_input_delay_15_2020_12_09_falcon_v_falcon_fd.pth')
-    agent.start()
