@@ -7,14 +7,14 @@ NUM_INDICES = 2 ** 5
 # buttons is list of numbers: non-zero means corresponding button is pressed.
 def to_index(buttons):
     idx = 0
-    for i, button in enumerate(buttons):
+    for i, button in enumerate(reversed(buttons)):
         if button != 0:
             idx += 2 ** i
     return idx
 
 def to_buttons(idx):
     buttons = [0] * 5
-    for i in range(5):
+    for i in reversed(range(5)):
         if idx % 2 == 1:
             buttons[i] = 1
         idx //= 2
@@ -25,11 +25,11 @@ if __name__ == '__main__':
 
     button_answers = [
         ([0, 0, 0, 0, 0], 0),
-        ([1, 0, 0, 0, 0], 1),
-        ([0, 1, 0, 0, 0], 2),
+        ([0, 0, 0, 0, 1], 1),
+        ([0, 0, 0, 1, 0], 2),
         ([0, 0, 1, 0, 0], 4),
-        ([0, 0, 0, 1, 0], 8),
-        ([0, 0, 0, 0, 1], 16),
+        ([0, 1, 0, 0, 0], 8),
+        ([1, 0, 0, 0, 0], 16),
         ([1, 1, 1, 1, 1], 31),
     ]
 
