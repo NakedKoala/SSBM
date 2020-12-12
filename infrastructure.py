@@ -200,9 +200,10 @@ class MeleeAI:
             controller = self.controller
             if action == 0:
                 controller = self.controller1
-                controller.tilt_analog_unit(melee.enums.Button.BUTTON_MAIN, -1, 0)
-                continue
 
+            # uncomment if you're testing to see if it works. it will march the AI off the map
+            # controller.tilt_analog_unit(melee.enums.Button.BUTTON_MAIN, -1, 0)
+            # continue
 
             if self.action_frequence != None and self.frameCount % (self.action_frequence + 2) == 0:
                 # a/b/x/z only holds 2 frame
