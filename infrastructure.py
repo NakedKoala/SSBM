@@ -200,22 +200,35 @@ class MeleeAI:
             controller = self.controller
             if action == 0:
                 controller = self.controller1
+                controller.tilt_analog_unit(melee.enums.Button.BUTTON_MAIN, -1, 0)
+                continue
 
-            commands = convert_action_state_to_command(actions[action])
 
-            # TODO: Add extra checks from above and refactor into single function
+            if self.action_frequence != None and self.frameCount % (self.action_frequence + 2) == 0:
+                # a/b/x/z only holds 2 frame
+                controller.release_button(melee.enums.Button.BUTTON_A)
+                controller.release_button(melee.enums.Button.BUTTON_B)
+                controller.release_button(melee.enums.Button.BUTTON_X)
+                controller.release_button(melee.enums.Button.BUTTON_Z)
 
-            for button, pressed in commands["button"].items():
-                if pressed == 1:
-                    controller.press_button(button)
-                else:
-                    controller.release_button(button)
+            if self.action_frequence != None and self.frameCount % self.action_frequence != 0:
+                # If we don't want action every frame then we should return here
+                continue
 
-            controller.press_shoulder(melee.enums.Button.BUTTON_L, commands["l_shoulder"] if commands["l_shoulder"] > 0 else 0)
-            controller.press_shoulder(melee.enums.Button.BUTTON_R, commands["r_shoulder"] if commands["r_shoulder"] > 0 else 0)
+            if self.action_frequence == None or self.frameCount % self.action_frequence == 0:
+                commands = convert_action_state_to_command(actions[action])
 
-            controller.tilt_analog_unit(melee.enums.Button.BUTTON_MAIN, commands["main_stick"][0], commands["main_stick"][1])
-            controller.tilt_analog_unit(melee.enums.Button.BUTTON_C, commands["c_stick"][0], commands["c_stick"][1])
+                for button, pressed in commands["button"].items():
+                    if pressed == 1:
+                        controller.press_button(button)
+                    else:
+                        controller.release_button(button)
+
+                controller.press_shoulder(melee.enums.Button.BUTTON_L, commands["l_shoulder"] if commands["l_shoulder"] > 0 else 0)
+                controller.press_shoulder(melee.enums.Button.BUTTON_R, commands["r_shoulder"] if commands["r_shoulder"] > 0 else 0)
+
+                controller.tilt_analog_unit(melee.enums.Button.BUTTON_MAIN, commands["main_stick"][0], commands["main_stick"][1])
+                controller.tilt_analog_unit(melee.enums.Button.BUTTON_C, commands["c_stick"][0], commands["c_stick"][1])
 
     def parse_gamestate(self, gamestate):
         frame = self.MeleeFrame(gamestate.frame)
@@ -286,7 +299,7 @@ class MeleeAI:
 
             frame.ports[i-1].changes = {
                 "damage": playerState.percent - self.previousDamage[i - 1],
-                "stock": playerState.stock - self.previousStocks[i - 1]
+                "stock": self.previousStocks[i - 1] - playerState.stock
             }
 
             self.previousStocks[i - 1] = playerState.stock
@@ -320,8 +333,23 @@ class MeleeAI:
             self.frameCount += 1
 
     def shutdown(self):
-        self.console.stop()
-        time.sleep(1)
+        gamestate = self.next_state()
+
+        frame_count = 0
+        while gamestate.menu_state != melee.enums.Menu.POSTGAME_SCORES and gamestate.menu_state != melee.enums.Menu.CHARACTER_SELECT:
+            frame_count += 1
+            if frame_count == 50:
+                break
+            gamestate = self.next_state()
+
+        self.frames = []
+
+        self.previousStocks = [3, 3]
+        self.previousPosition = [(0, 0), (0, 0)]
+        self.previousDamage = [0, 0]
+        self.previousFacing = [True, False]
+        self.previousAction = [melee.enums.Action.UNKNOWN_ANIMATION, melee.enums.Action.UNKNOWN_ANIMATION]
+        self.frameCount = -1
 
     def step(self): # RL only
         gamestate = self.next_state()
@@ -331,11 +359,12 @@ class MeleeAI:
 
         reward = 0
 
-        reward += frame.ports[1].changes["damage"] * self.rewards["damage"]
         reward -= frame.ports[0].changes["damage"] * self.rewards["damage"]
+        reward += frame.ports[1].changes["damage"] * self.rewards["damage"]
 
-        reward += frame.ports[0].changes["stock"] * self.rewards["stock"]
-        reward -= frame.ports[1].changes["stock"] * self.rewards["stock"]
+        reward -= frame.ports[0].changes["stock"] * self.rewards["stock"]
+        reward += frame.ports[1].changes["stock"] * self.rewards["stock"]
+
 
         done = False
 

@@ -16,13 +16,15 @@ class LibmeleeEnvironment(BaseEnvironment):
     def reset(self):
         if self.agent is not None:
             self.agent.shutdown()
-        # just make a new console, since menuing post game seems difficult.
-        self.agent = MeleeAI(action_frequence=None, window_size=60, frame_delay=self.frame_delay, include_opp_input=False, multiAgent=True, weights='../../../weights/mvp_fit5_EP7_VL0349.pth')
+        else:
+            self.agent = MeleeAI(action_frequence=None, window_size=60, frame_delay=self.frame_delay, include_opp_input=False, multiAgent=True, weights='../../../weights/mvp_fit5_EP7_VL0349.pth')
+
         self.agent.start()
         cur_state, _, _, _ = self.agent.step()
 
         self.state_shape = cur_state.shape[1:]
 
+        self.done = False
         return torch.zeros(self.state_shape, device='cpu'), torch.zeros(self.state_shape, device='cpu')
 
     # executes action immediately and returns delayed state/reward/done.
