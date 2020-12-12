@@ -1,5 +1,5 @@
 from .environment import BaseEnvironment
-from infrastructure import MeleeAI
+from infrastructure import *
 import torch
 
 class LibmeleeEnvironment(BaseEnvironment):
