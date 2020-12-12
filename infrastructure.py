@@ -40,25 +40,27 @@ class MeleeAI:
         self.multiAgent = multiAgent
         # self.model = SSBM_MVP(100, 50)
         # self.model.load_state_dict(torch.load('./weights/mvp_fit5_EP7_VL0349.pth',  map_location=lambda storage, loc: storage))
-        out_hidden_sizes=[
-            [256, 128], # buttons
-            [512, 256, 128], # stick coarse - NOTE - actually has 129 outputs
-            [128, 128], # stick fine
-            [128, 128], # stick magn
-            [256, 128], # cstick coarse - NOTE - actually has 129 outputs
-            [16, 16], # cstick fine
-            [128, 128], # cstick magn
-            [256, 128], # trigger
-        ]
-        self.model = SSBM_LSTM_Prob(
-            action_embedding_dim = 100, hidden_size = 256,
-            num_layers = 1, bidirectional=False, dropout_p=0.2,
-            out_hidden_sizes=out_hidden_sizes, recent_actions=True,
-            attention=False, include_opp_input=include_opp_input, latest_state_reminder=False,
-        )
-        self.model.load_state_dict(torch.load(weights, map_location=lambda storage, loc: storage))
-        self.model.eval()
-        # self.model.load_state_dict(torch.load('./weights/lstm_fd1_wz30_noshuffle_reminder.pth',  map_location=lambda storage, loc: storage))
+
+        if not multiAgent: # this is only needed when running non-RL
+            out_hidden_sizes=[
+                [256, 128], # buttons
+                [512, 256, 128], # stick coarse - NOTE - actually has 129 outputs
+                [128, 128], # stick fine
+                [128, 128], # stick magn
+                [256, 128], # cstick coarse - NOTE - actually has 129 outputs
+                [16, 16], # cstick fine
+                [128, 128], # cstick magn
+                [256, 128], # trigger
+            ]
+            self.model = SSBM_LSTM_Prob(
+                action_embedding_dim = 100, hidden_size = 256,
+                num_layers = 1, bidirectional=False, dropout_p=0.2,
+                out_hidden_sizes=out_hidden_sizes, recent_actions=True,
+                attention=False, include_opp_input=include_opp_input, latest_state_reminder=False,
+            )
+            self.model.load_state_dict(torch.load(weights, map_location=lambda storage, loc: storage))
+            self.model.eval()
+            # self.model.load_state_dict(torch.load('./weights/lstm_fd1_wz30_noshuffle_reminder.pth',  map_location=lambda storage, loc: storage))
 
         self.frame_delay = frame_delay
         self.window_size = window_size
@@ -322,14 +324,22 @@ class MeleeAI:
 
         reward = 0
 
-        # TODO: check if game is over (gamestate = in menu?)
         reward += frame.ports[1].damage * self.rewards["damage"]
         reward -= frame.ports[0].damage * self.rewards["damage"]
 
         reward += frame.ports[0].stocks * self.rewards["stock"]
         reward -= frame.ports[1].damage * self.rewards["stock"]
 
-        return frame, reward, False # TODO: return done instead of False
+        done = False
+
+        if frame.ports[1].stocks == 0:
+            done = True
+            reward += self.rewards["win"]
+        elif frame.ports[0].stocks == 0:
+            done = False
+            reward -= self.rewards["win"]
+
+        return frame, reward, done
 
     def start(self):
 
