@@ -1,33 +1,43 @@
 from .environment import BaseEnvironment
 from infrastructure import MeleeAI
+import torch
 
 class LibmeleeEnvironment(BaseEnvironment):
     def __init__(self, frame_delay):
-        self.agent = MeleeAI(action_frequence=None, window_size=60, frame_delay=frame_delay, include_opp_input=False, multiAgent=True, weights='../../../weights/mvp_fit5_EP7_VL0349.pth')
+        self.agent = None
 
         self.frame_delay = frame_delay
         self.buffer = []
+        self.state_shape = None
 
         self.done = False
 
     # resets the environment and returns an initial state.
     def reset(self):
-        self.agent.shutdown()
+        if self.agent is not None:
+            self.agent.shutdown()
         # just make a new console, since menuing post game seems difficult.
         self.agent = MeleeAI(action_frequence=None, window_size=60, frame_delay=self.frame_delay, include_opp_input=False, multiAgent=True, weights='../../../weights/mvp_fit5_EP7_VL0349.pth')
         self.agent.start()
+        cur_state, _, _, _ = self.agent.step()
+
+        self.state_shape = cur_state.shape[1:]
+
+        return torch.zeros(self.state_shape, device='cpu'), torch.zeros(self.state_shape, device='cpu')
 
     # executes action immediately and returns delayed state/reward/done.
     def step(self, action):
         self.agent.preform_action(action)
 
         if not self.done:
-            frame, reward, done = self.agent.step()
+            cur_state, adv_state, reward, done = self.agent.step()
             self.done = done
-
-            self.buffer.append((frame.ports[0], frame.ports[1], reward, done))
+            cur_state = cur_state[0]
+            adv_state = adv_state[0]
+            self.buffer.append((cur_state, adv_state, reward, done))
 
         if len(self.buffer) > 0 and (len(self.buffer) > self.frame_delay or self.done):
             return self.buffer.pop(0)
 
-        return 0, 0, 0 # TODO: what do i return when we dont have enough frames yet?
+        return torch.zeros(self.state_shape, device='cpu'), torch.zeros(self.state_shape, device='cpu'), 0, False
+

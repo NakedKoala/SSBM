@@ -194,22 +194,28 @@ class MeleeAI:
         self.controller.tilt_analog_unit(melee.enums.Button.BUTTON_MAIN, commands["main_stick"][0], commands["main_stick"][1])
         self.controller.tilt_analog_unit(melee.enums.Button.BUTTON_C, commands["c_stick"][0], commands["c_stick"][1])
 
-    def preform_action(self, action):
-        commands = convert_action_state_to_command(action[0])
+    def preform_action(self, actions):
 
-        # TODO: Add extra checks from above and refactor into single function
+        for action in range(len(actions)):
+            controller = self.controller
+            if action == 0:
+                controller = self.controller1
 
-        for button, pressed in commands["button"].items():
-            if pressed == 1:
-                self.controller.press_button(button)
-            else:
-                self.controller.release_button(button)
+            commands = convert_action_state_to_command(actions[action])
 
-        self.controller.press_shoulder(melee.enums.Button.BUTTON_L, commands["l_shoulder"] if commands["l_shoulder"] > 0 else 0)
-        self.controller.press_shoulder(melee.enums.Button.BUTTON_R, commands["r_shoulder"] if commands["r_shoulder"] > 0 else 0)
+            # TODO: Add extra checks from above and refactor into single function
 
-        self.controller.tilt_analog_unit(melee.enums.Button.BUTTON_MAIN, commands["main_stick"][0], commands["main_stick"][1])
-        self.controller.tilt_analog_unit(melee.enums.Button.BUTTON_C, commands["c_stick"][0], commands["c_stick"][1])
+            for button, pressed in commands["button"].items():
+                if pressed == 1:
+                    controller.press_button(button)
+                else:
+                    controller.release_button(button)
+
+            controller.press_shoulder(melee.enums.Button.BUTTON_L, commands["l_shoulder"] if commands["l_shoulder"] > 0 else 0)
+            controller.press_shoulder(melee.enums.Button.BUTTON_R, commands["r_shoulder"] if commands["r_shoulder"] > 0 else 0)
+
+            controller.tilt_analog_unit(melee.enums.Button.BUTTON_MAIN, commands["main_stick"][0], commands["main_stick"][1])
+            controller.tilt_analog_unit(melee.enums.Button.BUTTON_C, commands["c_stick"][0], commands["c_stick"][1])
 
     def parse_gamestate(self, gamestate):
         frame = self.MeleeFrame(gamestate.frame)
@@ -280,7 +286,7 @@ class MeleeAI:
 
             frame.ports[i-1].changes = {
                 "damage": playerState.percent - self.previousDamage[i - 1],
-                "stocks": playerState.stock - self.previousStocks[i - 1]
+                "stock": playerState.stock - self.previousStocks[i - 1]
             }
 
             self.previousStocks[i - 1] = playerState.stock
@@ -315,6 +321,7 @@ class MeleeAI:
 
     def shutdown(self):
         self.console.stop()
+        time.sleep(1)
 
     def step(self): # RL only
         gamestate = self.next_state()
@@ -324,22 +331,25 @@ class MeleeAI:
 
         reward = 0
 
-        reward += frame.ports[1].damage * self.rewards["damage"]
-        reward -= frame.ports[0].damage * self.rewards["damage"]
+        reward += frame.ports[1].changes["damage"] * self.rewards["damage"]
+        reward -= frame.ports[0].changes["damage"] * self.rewards["damage"]
 
-        reward += frame.ports[0].stocks * self.rewards["stock"]
-        reward -= frame.ports[1].damage * self.rewards["stock"]
+        reward += frame.ports[0].changes["stock"] * self.rewards["stock"]
+        reward -= frame.ports[1].changes["stock"] * self.rewards["stock"]
 
         done = False
 
-        if frame.ports[1].stocks == 0:
+        if frame.ports[1].leader.post.stocks == 0:
             done = True
             reward += self.rewards["win"]
-        elif frame.ports[0].stocks == 0:
-            done = False
+        elif frame.ports[0].leader.post.stocks == 0:
+            done = True
             reward -= self.rewards["win"]
 
-        return frame, reward, done
+        cur_state = convert_frame_to_input_tensor(frame, 0, self._STAGE_CONVERSION[gamestate.stage], False)
+        adv_state = convert_frame_to_input_tensor(frame, 1, self._STAGE_CONVERSION[gamestate.stage], False)
+
+        return cur_state, adv_state, reward, done
 
     def start(self):
 
