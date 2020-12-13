@@ -149,7 +149,10 @@ def train_eval_common_compute(model, batch, held_input_loss_factor, eval_behavio
     return loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger, c_match
 
 _MOVING_AVG_FACTOR = 0.99
-def train_eval_common_loop(model, dataloader, held_input_loss_factor, eval_behavior, device, compute_acc=True, print_out_freq=None, optim=None, stats_tracker=None):
+def train_eval_common_loop(
+    model, dataloader, held_input_loss_factor, eval_behavior, device, compute_acc=True,
+    print_out_freq=None, optim=None, stats_tracker=None, short_circuit=None
+):
     model.to(device)
     if optim:
         model.train()
@@ -185,6 +188,10 @@ def train_eval_common_loop(model, dataloader, held_input_loss_factor, eval_behav
 
     for batch in tqdm(dataloader, position=0, leave=True):
         num_batch += 1
+
+        if short_circuit is not None and num_batch > short_circuit:
+            break
+
         batch_size = batch[0].shape[0]
         if optim:
             optim.zero_grad()
@@ -236,7 +243,7 @@ def create_stats_tracker():
 def eval(model, val_dl, held_input_loss_factor, eval_behavior, device, stats_tracker=None):
     train_eval_common_loop(model, val_dl, held_input_loss_factor, eval_behavior, device, stats_tracker=stats_tracker)
 
-def train(model, trn_dl, val_dl, epochs, held_input_loss_factor, eval_behavior, print_out_freq, compute_acc, device, initial_lr=0.01, track_stats=True):
+def train(model, trn_dl, val_dl, epochs, held_input_loss_factor, eval_behavior, print_out_freq, compute_acc, device, initial_lr=0.01, track_stats=True, short_circuit=None):
     def lr_schedule(epoch):
         if epoch < 3:
             return 1
@@ -260,7 +267,8 @@ def train(model, trn_dl, val_dl, epochs, held_input_loss_factor, eval_behavior, 
         print(f'***TRAIN EPOCH {i}***', flush=True)
         train_eval_common_loop(
             model, trn_dl, held_input_loss_factor, eval_behavior, device, optim=optim,
-            print_out_freq=print_out_freq, compute_acc=compute_acc, stats_tracker=train_stats
+            print_out_freq=print_out_freq, compute_acc=compute_acc, stats_tracker=train_stats,
+            short_circuit=short_circuit
         )
 
         print(f'***EVAL EPOCH {i}***', flush=True)
