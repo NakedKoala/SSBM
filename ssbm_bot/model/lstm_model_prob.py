@@ -70,6 +70,7 @@ class SSBM_LSTM_Prob(nn.Module):
 
             self.attention_proj = Linear(in_features=self.lstm_out_size * self.num_directions, out_features=self.lstm_out_size * self.num_directions)
             self.dropout = Dropout(p=dropout_p)
+            self.own_input_dropout = Dropout(p=0.5)
             self.attention = attention
 
             # create value head
@@ -95,6 +96,7 @@ class SSBM_LSTM_Prob(nn.Module):
      def forward(self, x, forced_action=None, behavior=1):
          if self.recent_actions:
             x, recent_actions = x
+            recent_actions[:,:,1:] = self.own_input_dropout(recent_actions[:,:,1:])
          # x -> (batch, seq_len, feat_dim)
 
          # position and direction
@@ -112,7 +114,10 @@ class SSBM_LSTM_Prob(nn.Module):
 
          embed_indices = x[:,:,1:1+self.num_emb_feats].long()
          regular_feat = torch.cat([x[:,:,0].unsqueeze(dim=-1), x[:,:,1+self.num_emb_feats:]], axis=-1)
-
+        #  pdb.set_trace()
+         regular_feat[:,:,-6:] = self.own_input_dropout(regular_feat[:,:,-6:])
+         
+         
          # import pdb; pdb.set_trace()
          # stage | (player) state state character button | (opponent) state state character [button]
          stage_embed_idx = embed_indices[:,:,0]
@@ -139,6 +144,8 @@ class SSBM_LSTM_Prob(nn.Module):
 
          action_embed_feat = self.action_state_embedding(action_embed_idx.reshape(-1)).reshape(batch_size, seq_len, -1)
          button_embed_feat = self.button_combination_embedding(button_combination_idx.reshape(-1)).reshape(batch_size, seq_len, -1)
+         button_embed_feat = self.own_input_dropout(button_embed_feat)
+
          character_embed_feat = self.character_embedding(character_embed_idx).reshape(batch_size, seq_len, -1)
          stage_embed_feat =  self.stage_embedding(stage_embed_idx).reshape(batch_size, seq_len, -1)
 
@@ -150,6 +157,7 @@ class SSBM_LSTM_Prob(nn.Module):
 
          if self.recent_actions and recent_actions is not None:
             # recent_actions_seq_len = recent_actions.shape[1]
+            # pdb.set_trace()
             recent_btn_indices, recent_other = recent_actions[:,:,0].long(), recent_actions[:,:,1:]
             recent_btn_embed_feat = self.button_combination_embedding(recent_btn_indices)
             recent_actions_feat = torch.cat([recent_btn_embed_feat, recent_other], axis=-1).float()
