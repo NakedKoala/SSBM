@@ -189,9 +189,6 @@ def train_eval_common_loop(
     for batch in tqdm(dataloader, position=0, leave=True):
         num_batch += 1
 
-        if short_circuit is not None and num_batch > short_circuit:
-            break
-
         batch_size = batch[0].shape[0]
         if optim:
             optim.zero_grad()
@@ -225,6 +222,9 @@ def train_eval_common_loop(
 
         if print_out_freq and num_batch % print_out_freq == 0:
             print_stats()
+
+        if short_circuit is not None and num_batch >= short_circuit:
+            break
 
     print_stats()
 
