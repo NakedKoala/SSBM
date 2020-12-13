@@ -17,6 +17,7 @@ class SSBM_LSTM_Prob(nn.Module):
      def __init__(self, action_embedding_dim, hidden_size = 256, num_layers = 1, bidirectional=False, dropout_p=0.2,
                   attention=False, recent_actions=False, value_hidden_sizes = [256, 128], character_embedding_dim = 50,
                   stage_embedding_dim = 50, include_opp_input=True, latest_state_reminder=False,
+                  own_dropout_p = 0.5, opp_dropout_p = 0.5,
                   **kwargs):
             super().__init__()
 
@@ -70,7 +71,8 @@ class SSBM_LSTM_Prob(nn.Module):
 
             self.attention_proj = Linear(in_features=self.lstm_out_size * self.num_directions, out_features=self.lstm_out_size * self.num_directions)
             self.dropout = Dropout(p=dropout_p)
-            self.own_input_dropout = Dropout(p=0.5)
+            self.own_input_dropout = Dropout(p=own_dropout_p)
+            self.opp_input_dropout = Dropout(p=opp_dropout_p)
             self.attention = attention
 
             # create value head
@@ -115,7 +117,12 @@ class SSBM_LSTM_Prob(nn.Module):
          embed_indices = x[:,:,1:1+self.num_emb_feats].long()
          regular_feat = torch.cat([x[:,:,0].unsqueeze(dim=-1), x[:,:,1+self.num_emb_feats:]], axis=-1)
         #  pdb.set_trace()
-         regular_feat[:,:,-6:] = self.own_input_dropout(regular_feat[:,:,-6:])
+
+         if self.include_opp_input:
+            regular_feat[:,:,-12:-6] = self.own_input_dropout(regular_feat[:,:,-12:-6])
+            regular_feat[:,:,-6:] = self.opp_input_dropout(regular_feat[:,:,-6:])
+         else:
+            regular_feat[:,:,-6:] = self.own_input_dropout(regular_feat[:,:,-6:])
          
          
          # import pdb; pdb.set_trace()
@@ -144,8 +151,15 @@ class SSBM_LSTM_Prob(nn.Module):
 
          action_embed_feat = self.action_state_embedding(action_embed_idx.reshape(-1)).reshape(batch_size, seq_len, -1)
          button_embed_feat = self.button_combination_embedding(button_combination_idx.reshape(-1)).reshape(batch_size, seq_len, -1)
-         button_embed_feat = self.own_input_dropout(button_embed_feat)
+         embed_dim = self.button_combination_embedding.embedding_dim
+         
+         if self.include_opp_input:
+            button_embed_feat[:,:,-embed_dim:] = self.opp_input_dropout(button_embed_feat[:,:,-embed_dim:])
+            button_embed_feat[:,:,-embed_dim*2:-embed_dim] = self.own_input_dropout(button_embed_feat[:,:,-embed_dim*2:-embed_dim])
+         else:
+            button_embed_feat = self.own_input_dropout(button_embed_feat)
 
+         
          character_embed_feat = self.character_embedding(character_embed_idx).reshape(batch_size, seq_len, -1)
          stage_embed_feat =  self.stage_embedding(stage_embed_idx).reshape(batch_size, seq_len, -1)
 
