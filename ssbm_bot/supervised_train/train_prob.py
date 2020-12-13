@@ -149,7 +149,7 @@ def train_eval_common_compute(model, batch, held_input_loss_factor, eval_behavio
     return loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger, c_match
 
 _MOVING_AVG_FACTOR = 0.99
-def train_eval_common_loop(model, dataloader, held_input_loss_factor, eval_behavior, device, compute_acc=True, print_out_freq=None, optim=None):
+def train_eval_common_loop(model, dataloader, held_input_loss_factor, eval_behavior, device, compute_acc=True, print_out_freq=None, optim=None, stats_tracker=None):
     model.to(device)
     if optim:
         model.train()
@@ -206,16 +206,37 @@ def train_eval_common_loop(model, dataloader, held_input_loss_factor, eval_behav
         correct_trigger = upd_moving_avg(correct_trigger, c_trigger/batch_size)
         correct_match = upd_moving_avg(correct_match, c_match/batch_size)
 
+        if stats_tracker is not None:
+            stats_tracker['total_loss'].append(loss.item())
+            stats_tracker['correct_btn'].append(c_btn/batch_size)
+            stats_tracker['correct_coarse'].append(c_coarse/batch_size)
+            stats_tracker['correct_fine'].append(c_fine/batch_size)
+            stats_tracker['correct_stick'].append(c_stick/batch_size)
+            stats_tracker['correct_cstick'].append(c_cstick/batch_size)
+            stats_tracker['correct_trigger'].append(c_trigger/batch_size)
+            stats_tracker['correct_match'].append(c_match/batch_size)
+
         if print_out_freq and num_batch % print_out_freq == 0:
             print_stats()
 
     print_stats()
-    return total_loss, correct_btn, correct_coarse, correct_fine, correct_stick, correct_cstick, correct_trigger, correct_match
 
-def eval(model, val_dl, held_input_loss_factor, eval_behavior, device):
-    train_eval_common_loop(model, val_dl, held_input_loss_factor, eval_behavior, device)
+def create_stats_tracker():
+    stats_tracker = {}
+    stats_tracker['total_loss'] = []
+    stats_tracker['correct_btn'] = []
+    stats_tracker['correct_coarse'] = []
+    stats_tracker['correct_fine'] = []
+    stats_tracker['correct_stick'] = []
+    stats_tracker['correct_cstick'] = []
+    stats_tracker['correct_trigger'] = []
+    stats_tracker['correct_match'] = []
+    return stats_tracker
 
-def train(model, trn_dl, val_dl, epochs, held_input_loss_factor, eval_behavior, print_out_freq, compute_acc, device, initial_lr=0.01):
+def eval(model, val_dl, held_input_loss_factor, eval_behavior, device, stats_tracker=None):
+    train_eval_common_loop(model, val_dl, held_input_loss_factor, eval_behavior, device, stats_tracker=stats_tracker)
+
+def train(model, trn_dl, val_dl, epochs, held_input_loss_factor, eval_behavior, print_out_freq, compute_acc, device, initial_lr=0.01, track_stats=True):
     def lr_schedule(epoch):
         if epoch < 3:
             return 1
@@ -228,10 +249,33 @@ def train(model, trn_dl, val_dl, epochs, held_input_loss_factor, eval_behavior, 
     optim = Adam(model.parameters(), lr=initial_lr, weight_decay=1e-5)
     scheduler = LambdaLR(optim, lr_lambda=[lr_schedule])
 
+    if track_stats:
+        train_stats = create_stats_tracker()
+        eval_stats = create_stats_tracker()
+    else:
+        train_stats = None
+        eval_stats = None
+
     for i in range(epochs):
         print(f'***TRAIN EPOCH {i}***', flush=True)
-        train_eval_common_loop(model, trn_dl, held_input_loss_factor, eval_behavior, device, optim=optim, print_out_freq=print_out_freq, compute_acc=compute_acc)
+        train_eval_common_loop(
+            model, trn_dl, held_input_loss_factor, eval_behavior, device, optim=optim,
+            print_out_freq=print_out_freq, compute_acc=compute_acc, stats_tracker=train_stats
+        )
 
         print(f'***EVAL EPOCH {i}***', flush=True)
-        eval(model, val_dl, held_input_loss_factor, eval_behavior, device)
+
+        if track_stats:
+            eval_len = len(eval_stats['total_loss'])
+
+        eval(model, val_dl, held_input_loss_factor, eval_behavior, device, stats_tracker=eval_stats)
+
+        if track_stats:
+            for stat, lst in eval_stats.items():
+                epoch_mean = sum(lst[eval_len:])/(len(lst)-eval_len)
+                new_lst = lst[:eval_len] + [epoch_mean]
+                eval_stats[stat] = new_lst
+
         scheduler.step()
+
+    return (train_stats, eval_stats)
