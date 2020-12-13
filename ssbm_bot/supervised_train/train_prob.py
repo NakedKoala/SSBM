@@ -243,8 +243,11 @@ def create_stats_tracker():
 def eval(model, val_dl, held_input_loss_factor, eval_behavior, device, stats_tracker=None):
     train_eval_common_loop(model, val_dl, held_input_loss_factor, eval_behavior, device, stats_tracker=stats_tracker)
 
-def train(model, trn_dl, val_dl, epochs, held_input_loss_factor, eval_behavior, print_out_freq, compute_acc, device, initial_lr=0.01, track_stats=True, short_circuit=None):
-    def lr_schedule(epoch):
+def train(
+    model, trn_dl, val_dl, epochs, held_input_loss_factor, eval_behavior, print_out_freq, compute_acc, device,
+    initial_lr=0.01, track_stats=True, short_circuit=None, lr_schedule=None
+):
+    def def_lr_schedule(epoch):
         if epoch < 3:
             return 1
         elif epoch < 6:
@@ -252,6 +255,9 @@ def train(model, trn_dl, val_dl, epochs, held_input_loss_factor, eval_behavior, 
         elif epoch < 9:
             return 0.01
         return 0.001
+
+    if lr_schedule is None:
+        lr_schedule = def_lr_schedule
 
     optim = Adam(model.parameters(), lr=initial_lr, weight_decay=1e-5)
     scheduler = LambdaLR(optim, lr_lambda=[lr_schedule])
