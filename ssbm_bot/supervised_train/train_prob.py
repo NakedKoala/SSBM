@@ -103,7 +103,7 @@ def convert_idx_to_one_hot(indices_t):
     ), 1)
 
 
-def train_eval_common_compute(model, batch, held_input_loss_factor, include_held_input_acc, eval_behavior, compute_acc, device):
+def train_eval_common_compute(model, batch, held_input_loss_factor, include_held_input_acc, eval_behavior, compute_acc, device, tmp_lst):
     if len(batch) == 4:
         features, cts_targets, button_targets, held_input = batch
         inputs = features.to(device)
@@ -156,6 +156,9 @@ def train_eval_common_compute(model, batch, held_input_loss_factor, include_held
 
     # generate loss
     action_logits, _, _ = model(inputs, forced_action=forced_action)
+    if model.training:
+        tmp_lst.extend(torch.max(action_logits[0],dim=1).indices.numpy().tolist())
+
     loss = torch.zeros(1).to(device)
     for logits, target in zip(action_logits, all_targets):
         loss_unreduced = cross_entropy(logits, target.to(device), reduction='none')
@@ -166,7 +169,8 @@ def train_eval_common_compute(model, batch, held_input_loss_factor, include_held
 _MOVING_AVG_FACTOR = 0.99
 def train_eval_common_loop(
     model, dataloader, held_input_loss_factor, eval_behavior, device, compute_acc=True,
-    print_out_freq=None, optim=None, stats_tracker=None, short_circuit=None, include_held_input_acc=True
+    print_out_freq=None, optim=None, stats_tracker=None, short_circuit=None, include_held_input_acc=True,
+    tmp_lst=[]
 ):
     model.to(device)
     if optim:
@@ -208,14 +212,14 @@ def train_eval_common_loop(
         if optim:
             optim.zero_grad()
             loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger, c_match, c_held_ignored = \
-                train_eval_common_compute(model, batch, held_input_loss_factor, include_held_input_acc, eval_behavior, compute_acc, device)
+                train_eval_common_compute(model, batch, held_input_loss_factor, include_held_input_acc, eval_behavior, compute_acc, device, tmp_lst=tmp_lst)
             loss.backward()
             optim.step()
         else:
             with torch.no_grad():
                 loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger, c_match, c_held_ignored = \
-                    train_eval_common_compute(model, batch, held_input_loss_factor, include_held_input_acc, eval_behavior, compute_acc, device)
-
+                    train_eval_common_compute(model, batch, held_input_loss_factor, include_held_input_acc, eval_behavior, compute_acc, device, tmp_lst=tmp_lst)
+                
         total_loss = upd_moving_avg(total_loss, loss.item())
         num_ex = batch_size - c_held_ignored
         correct_btn = upd_moving_avg(correct_btn, c_btn/num_ex)
@@ -257,7 +261,15 @@ def create_stats_tracker():
     return stats_tracker
 
 def eval(model, val_dl, held_input_loss_factor, eval_behavior, device, stats_tracker=None, include_held_input_acc=True):
-    train_eval_common_loop(model, val_dl, held_input_loss_factor, eval_behavior, device, stats_tracker=stats_tracker, include_held_input_acc=include_held_input_acc)
+    tmp_lst = []
+    train_eval_common_loop(model, val_dl, held_input_loss_factor, eval_behavior, device, stats_tracker=stats_tracker, include_held_input_acc=include_held_input_acc, tmp_lst=tmp_lst)
+    print(len(tmp_lst))
+    counter = dict()
+    for item in tmp_lst:
+        if item not in counter:
+            counter[item] = 0 
+        counter[item] += 1
+    print(counter)
 
 def train(
     model, trn_dl, val_dl, epochs, held_input_loss_factor, eval_behavior, print_out_freq, compute_acc, device,
