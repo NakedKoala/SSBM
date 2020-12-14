@@ -16,6 +16,7 @@ def get_correct(choices, targets, held_input):
         held_input = torch.zeros(targets[0].shape[0], dtype=torch.bool)
     else:
         held_input = held_input.reshape(-1).bool()
+    held_input = held_input.to(targets[0].device)
 
     # are the buttons the same?
     correct_btn = torch.eq(targets[0], choices[0]) * held_input.logical_not()
