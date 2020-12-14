@@ -156,8 +156,8 @@ def train_eval_common_compute(model, batch, held_input_loss_factor, include_held
 
     # generate loss
     action_logits, _, _ = model(inputs, forced_action=forced_action)
-    if model.training:
-        tmp_lst.extend(torch.max(action_logits[0],dim=1).indices.numpy().tolist())
+    if not model.training:
+        tmp_lst.extend(torch.max(action_logits[0],dim=1).indices.detach().cpu().numpy().tolist())
 
     loss = torch.zeros(1).to(device)
     for logits, target in zip(action_logits, all_targets):
