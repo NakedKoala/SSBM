@@ -11,7 +11,8 @@ if __name__ == '__main__':
     )
 
     environment = LibmeleeEnvironment(
-        frame_delay=1
+        frame_delay=1,
+        iso_path='/path/to/melee.iso'
     )
 
     run_loop(

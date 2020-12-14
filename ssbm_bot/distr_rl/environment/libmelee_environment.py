@@ -1,9 +1,9 @@
 from .environment import BaseEnvironment
-from infrastructure import *
+from ..infrastructure import *
 import torch
 
 class LibmeleeEnvironment(BaseEnvironment):
-    def __init__(self, frame_delay):
+    def __init__(self, frame_delay, iso_path):
         self.agent = None
 
         self.frame_delay = frame_delay
@@ -12,12 +12,14 @@ class LibmeleeEnvironment(BaseEnvironment):
 
         self.done = False
 
+        self.iso_path = iso_path
+
     # resets the environment and returns an initial state.
     def reset(self):
         if self.agent is not None:
             self.agent.shutdown()
         else:
-            self.agent = MeleeAI(action_frequence=None, window_size=60, frame_delay=self.frame_delay, include_opp_input=False, multiAgent=True, weights='../../../weights/mvp_fit5_EP7_VL0349.pth')
+            self.agent = MeleeAI(action_frequence=None, window_size=60, frame_delay=self.frame_delay, include_opp_input=False, multiAgent=True, model=None, iso_path=self.iso_path)
 
         self.agent.start()
         cur_state, _, _, _ = self.agent.step()
