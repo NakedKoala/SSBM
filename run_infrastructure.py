@@ -16,14 +16,15 @@ if __name__ == "__main__":
         [256, 128], # trigger
     ]
 
-    model = SSBM_LSTM_Prob(
+    model = model = SSBM_LSTM_Prob(
         action_embedding_dim = 100, hidden_size = 256,
         num_layers = 1, bidirectional=False, dropout_p=0.2,
         out_hidden_sizes=out_hidden_sizes, recent_actions=True,
         attention=False, include_opp_input=False, latest_state_reminder=True,
-        own_dropout_p=1.0, opp_dropout_p=0.5, no_own_input=True
+        own_dropout_p=1.0, opp_dropout_p=0.5, no_own_input=True, verbose_reminder=True
     )
-    model.load_state_dict(torch.load('./weights/no_own_input_reminder.pth', map_location=lambda storage, loc: storage))
+    weights = './weights/no_own_input_verbose_reminder.pth'
+    model.load_state_dict(torch.load(weights, map_location=lambda storage, loc: storage))
 
     agent = MeleeAI(action_frequence=None, window_size=60, frame_delay=15, include_opp_input=False, multiAgent=False, model=model, iso_path=None)
     agent.start()
