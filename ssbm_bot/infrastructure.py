@@ -36,7 +36,7 @@ class MeleeAI:
             self.index = frameIndex
 
 
-    def __init__(self, action_frequence, window_size, frame_delay, include_opp_input, multiAgent, model=None, iso_path=None):
+    def __init__(self, action_frequence, window_size, frame_delay, include_opp_input, multiAgent, model=None, iso_path=None, behavior=0):
         self.multiAgent = multiAgent
 
         if not multiAgent: # this is only needed when running non-RL
@@ -46,6 +46,7 @@ class MeleeAI:
                 )
             self.model = model
             self.model.eval()
+        self.behavior = behavior
 
         self.frame_delay = frame_delay
         self.window_size = window_size
@@ -153,9 +154,7 @@ class MeleeAI:
 
         if self.action_frequence == None or self.frameCount % self.action_frequence == 0:
             # action_frequence == None -> we want action every frame
-            # behavior = 0 if frame.index < 100 else 1
-            behavior = 0
-            _, choices, _ = self.model(model_input, behavior=behavior)
+            _, choices, _ = self.model(model_input, behavior=self.behavior)
             self.last_model_output = choices[0]
             commands = convert_action_state_to_command(choices[0])
 
