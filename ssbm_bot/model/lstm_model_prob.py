@@ -16,7 +16,7 @@ class SSBM_LSTM_Prob(nn.Module):
      no_opp_num_emb_feats = 8
      def __init__(self, action_embedding_dim, hidden_size = 256, num_layers = 1, bidirectional=False, dropout_p=0.2,
                   attention=False, recent_actions=False, value_hidden_sizes = [256, 128], character_embedding_dim = 50,
-                  stage_embedding_dim = 50, include_opp_input=True, latest_state_reminder=False,
+                  stage_embedding_dim = 50, include_opp_input=True, latest_state_reminder=False, verbose_reminder=False,
                   own_dropout_p = 0.5, opp_dropout_p = 0.5, no_own_input = False, 
                   **kwargs):
             super().__init__()
@@ -24,6 +24,7 @@ class SSBM_LSTM_Prob(nn.Module):
             self.recent_actions = recent_actions
             self.latest_state_reminder = latest_state_reminder
             self.no_own_input = no_own_input
+            self. verbose_reminder = verbose_reminder
 
             if bidirectional == True:
                self.num_directions = 2
@@ -35,7 +36,10 @@ class SSBM_LSTM_Prob(nn.Module):
             else:
                 self.lstm_out_size = hidden_size
             if latest_state_reminder:
-               self.action_head = ActionHead(self.lstm_out_size * self.num_directions + 12, **kwargs)
+               if verbose_reminder:
+                    self.action_head = ActionHead(self.lstm_out_size * self.num_directions + 37, **kwargs)
+               else:
+                    self.action_head = ActionHead(self.lstm_out_size * self.num_directions + 12, **kwargs)
             else:
                self.action_head = ActionHead(self.lstm_out_size * self.num_directions, **kwargs)
 
@@ -81,7 +85,10 @@ class SSBM_LSTM_Prob(nn.Module):
             last_in_size = self.lstm_out_size * self.num_directions
 
             if latest_state_reminder:
-               last_in_size += 12
+               if verbose_reminder:
+                last_in_size += 37
+               else:
+                last_in_size += 12
 
             for v_hidden_size in value_hidden_sizes:
                 value_hidden_layers.extend((
@@ -107,13 +114,16 @@ class SSBM_LSTM_Prob(nn.Module):
 
          # position and direction
          if self.latest_state_reminder:
-            if self.include_opp_input:
-                latest_state = torch.cat([x[:, -1, 10:16], x[:, -1, 26:32]], dim=1)
+            if self.verbose_reminder:
+                latest_state = x[:, -1, 1+self.num_emb_feats:]
             else:
-                latest_state = torch.cat([x[:, -1, 9:15], x[:, -1, 25:31]], dim=1)
+                if self.include_opp_input:
+                    latest_state = torch.cat([x[:, -1, 10:16], x[:, -1, 26:32]], dim=1)
+                else:
+                    latest_state = torch.cat([x[:, -1, 9:15], x[:, -1, 25:31]], dim=1)
 
          # import pdb
-         # pdb.set_trace()
+        #  pdb.set_trace()
 
          batch_size = x.shape[0]
          seq_len = x.shape[1]
