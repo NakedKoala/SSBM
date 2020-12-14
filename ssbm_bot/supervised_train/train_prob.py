@@ -10,9 +10,15 @@ from .. import controller_indices as c_idx
 
 ACCURACY_EPS = 1e-1
 # each input is a tuple of 8 tensors
-def get_correct(choices, targets):
+def get_correct(choices, targets, held_input):
+
+    if held_input is None:
+        held_input = torch.zeros(targets[0].shape[0], dtype=torch.bool)
+    else:
+        held_input = held_input.reshape(-1).bool()
+
     # are the buttons the same?
-    correct_btn = torch.eq(targets[0], choices[0])
+    correct_btn = torch.eq(targets[0], choices[0]) * held_input.logical_not()
     # are the buttons the same and the sticks in the same general area?
     correct_coarse = correct_btn.clone()
     # are the buttons the same and the sticks very close to each other?
@@ -25,6 +31,10 @@ def get_correct(choices, targets):
 
     # check that continuous outputs are close enough
     for i in range(correct_btn.shape[0]):
+
+        if held_input[i]:
+            continue
+
         # get stick/trigger values
         def ch(idx):
             return choices[idx][i].item()
@@ -52,7 +62,7 @@ def get_correct(choices, targets):
 
         # inputs finely correct?
         # buttons must be correct
-        if not correct_btn[i].item or not (
+        if not correct_btn[i].item() or not (
             correct_stick[i] and correct_cstick[i] and correct_trigger[i]
         ):
             correct_fine[i] = False
@@ -60,7 +70,7 @@ def get_correct(choices, targets):
 
     return tuple(map(
         torch.sum,
-        (correct_btn, correct_coarse, correct_fine, correct_stick, correct_cstick, correct_trigger)
+        (correct_btn, correct_coarse, correct_fine, correct_stick, correct_cstick, correct_trigger, held_input)
     ))
 
 # this should be moved to common_parsing_logic later
@@ -92,7 +102,7 @@ def convert_idx_to_one_hot(indices_t):
     ), 1)
 
 
-def train_eval_common_compute(model, batch, held_input_loss_factor, eval_behavior, compute_acc, device):
+def train_eval_common_compute(model, batch, held_input_loss_factor, include_held_input_acc, eval_behavior, compute_acc, device):
     if len(batch) == 4:
         features, cts_targets, button_targets, held_input = batch
         inputs = features.to(device)
@@ -121,14 +131,17 @@ def train_eval_common_compute(model, batch, held_input_loss_factor, eval_behavio
             category_match, _ = torch.min(
                 (choices == forced_action), dim=1
             )
+            if not include_held_input_acc:
+                category_match *= held_input.reshape(-1).logical_not()
             c_match = category_match.sum().item()
 
             # was the model's choices correct logically?
             # i.e. the converted choice -> input is close to the actual target inputs
             choices = choices.to(button_targets.device) # assume button/cts_targets on the same device
-            c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger = get_correct(
+            c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger, c_held_ignored = get_correct(
                 tuple(choices[:,i] for i in range(choices.shape[1])),
-                (button_targets,) + cts_idx
+                (button_targets,) + cts_idx,
+                None if include_held_input_acc else held_input
             )
             c_btn = c_btn.item()
             c_coarse = c_coarse.item()
@@ -136,8 +149,9 @@ def train_eval_common_compute(model, batch, held_input_loss_factor, eval_behavio
             c_stick = c_stick.item()
             c_cstick = c_cstick.item()
             c_trigger = c_trigger.item()
+            c_held_ignored = c_held_ignored.item()
     else:
-        c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger, c_match = (0,) * 7
+        c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger, c_match, c_held_ignored = (0,) * 7
 
     # generate loss
     action_logits, _, _ = model(inputs, forced_action=forced_action)
@@ -146,12 +160,12 @@ def train_eval_common_compute(model, batch, held_input_loss_factor, eval_behavio
         loss_unreduced = cross_entropy(logits, target.to(device), reduction='none')
         loss += (loss_unreduced * loss_factor_t).mean()
 
-    return loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger, c_match
+    return loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger, c_match, c_held_ignored
 
 _MOVING_AVG_FACTOR = 0.99
 def train_eval_common_loop(
     model, dataloader, held_input_loss_factor, eval_behavior, device, compute_acc=True,
-    print_out_freq=None, optim=None, stats_tracker=None, short_circuit=None
+    print_out_freq=None, optim=None, stats_tracker=None, short_circuit=None, include_held_input_acc=True
 ):
     model.to(device)
     if optim:
@@ -192,33 +206,34 @@ def train_eval_common_loop(
         batch_size = batch[0].shape[0]
         if optim:
             optim.zero_grad()
-            loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger, c_match = \
-                train_eval_common_compute(model, batch, held_input_loss_factor, eval_behavior, compute_acc, device)
+            loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger, c_match, c_held_ignored = \
+                train_eval_common_compute(model, batch, held_input_loss_factor, include_held_input_acc, eval_behavior, compute_acc, device)
             loss.backward()
             optim.step()
         else:
             with torch.no_grad():
-                loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger, c_match = \
-                    train_eval_common_compute(model, batch, held_input_loss_factor, eval_behavior, compute_acc, device)
+                loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger, c_match, c_held_ignored = \
+                    train_eval_common_compute(model, batch, held_input_loss_factor, include_held_input_acc, eval_behavior, compute_acc, device)
 
         total_loss = upd_moving_avg(total_loss, loss.item())
-        correct_btn = upd_moving_avg(correct_btn, c_btn/batch_size)
-        correct_coarse = upd_moving_avg(correct_coarse, c_coarse/batch_size)
-        correct_fine = upd_moving_avg(correct_fine, c_fine/batch_size)
-        correct_stick = upd_moving_avg(correct_stick, c_stick/batch_size)
-        correct_cstick = upd_moving_avg(correct_cstick, c_cstick/batch_size)
-        correct_trigger = upd_moving_avg(correct_trigger, c_trigger/batch_size)
-        correct_match = upd_moving_avg(correct_match, c_match/batch_size)
+        num_ex = batch_size - c_held_ignored
+        correct_btn = upd_moving_avg(correct_btn, c_btn/num_ex)
+        correct_coarse = upd_moving_avg(correct_coarse, c_coarse/num_ex)
+        correct_fine = upd_moving_avg(correct_fine, c_fine/num_ex)
+        correct_stick = upd_moving_avg(correct_stick, c_stick/num_ex)
+        correct_cstick = upd_moving_avg(correct_cstick, c_cstick/num_ex)
+        correct_trigger = upd_moving_avg(correct_trigger, c_trigger/num_ex)
+        correct_match = upd_moving_avg(correct_match, c_match/num_ex)
 
         if stats_tracker is not None:
             stats_tracker['total_loss'].append(loss.item())
-            stats_tracker['correct_btn'].append(c_btn/batch_size)
-            stats_tracker['correct_coarse'].append(c_coarse/batch_size)
-            stats_tracker['correct_fine'].append(c_fine/batch_size)
-            stats_tracker['correct_stick'].append(c_stick/batch_size)
-            stats_tracker['correct_cstick'].append(c_cstick/batch_size)
-            stats_tracker['correct_trigger'].append(c_trigger/batch_size)
-            stats_tracker['correct_match'].append(c_match/batch_size)
+            stats_tracker['correct_btn'].append(c_btn/num_ex)
+            stats_tracker['correct_coarse'].append(c_coarse/num_ex)
+            stats_tracker['correct_fine'].append(c_fine/num_ex)
+            stats_tracker['correct_stick'].append(c_stick/num_ex)
+            stats_tracker['correct_cstick'].append(c_cstick/num_ex)
+            stats_tracker['correct_trigger'].append(c_trigger/num_ex)
+            stats_tracker['correct_match'].append(c_match/num_ex)
 
         if print_out_freq and num_batch % print_out_freq == 0:
             print_stats()
@@ -240,12 +255,12 @@ def create_stats_tracker():
     stats_tracker['correct_match'] = []
     return stats_tracker
 
-def eval(model, val_dl, held_input_loss_factor, eval_behavior, device, stats_tracker=None):
-    train_eval_common_loop(model, val_dl, held_input_loss_factor, eval_behavior, device, stats_tracker=stats_tracker)
+def eval(model, val_dl, held_input_loss_factor, eval_behavior, device, stats_tracker=None, include_held_input_acc=True):
+    train_eval_common_loop(model, val_dl, held_input_loss_factor, eval_behavior, device, stats_tracker=stats_tracker, include_held_input_acc=include_held_input_acc)
 
 def train(
     model, trn_dl, val_dl, epochs, held_input_loss_factor, eval_behavior, print_out_freq, compute_acc, device,
-    initial_lr=0.01, track_stats=True, short_circuit=None, lr_schedule=None
+    initial_lr=0.01, track_stats=True, short_circuit=None, lr_schedule=None, include_held_input_acc=True
 ):
     def def_lr_schedule(epoch):
         if epoch < 3:
@@ -274,7 +289,7 @@ def train(
         train_eval_common_loop(
             model, trn_dl, held_input_loss_factor, eval_behavior, device, optim=optim,
             print_out_freq=print_out_freq, compute_acc=compute_acc, stats_tracker=train_stats,
-            short_circuit=short_circuit
+            short_circuit=short_circuit, include_held_input_acc=include_held_input_acc
         )
 
         print(f'***EVAL EPOCH {i}***', flush=True)
@@ -282,7 +297,7 @@ def train(
         if track_stats:
             eval_len = len(eval_stats['total_loss'])
 
-        eval(model, val_dl, held_input_loss_factor, eval_behavior, device, stats_tracker=eval_stats)
+        eval(model, val_dl, held_input_loss_factor, eval_behavior, device, stats_tracker=eval_stats, include_held_input_acc=include_held_input_acc)
 
         if track_stats:
             for stat, lst in eval_stats.items():
