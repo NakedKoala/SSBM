@@ -102,7 +102,7 @@ class MeleeAI:
         if multiAgent:
             self.controller1 = melee.Controller(self.console, 1)
 
-        self.console.run(iso_path="/Users/nathan/Downloads/meleeIso.iso") #TODO: modularize? or set your )
+        self.console.run(iso_path="/Users/cloudh/Desktop/SSBM/Super Smash Bros. Melee (USA) (v1.02).iso") #TODO: modularize? or set your )
 
         print("Connecting to console...")
         if not self.console.connect():
