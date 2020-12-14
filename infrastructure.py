@@ -58,7 +58,7 @@ class MeleeAI:
                 num_layers = 1, bidirectional=False, dropout_p=0.2,
                 out_hidden_sizes=out_hidden_sizes, recent_actions=True,
                 attention=False, include_opp_input=include_opp_input, latest_state_reminder=True,
-                own_dropout_p=1.0, opp_dropout_p=0.5, no_own_input=True
+                own_dropout_p=1.0, opp_dropout_p=0.5, no_own_input=True, verbose_reminder=True
             )
 
             self.model.load_state_dict(torch.load(weights, map_location=lambda storage, loc: storage))
@@ -413,5 +413,5 @@ class MeleeAI:
 
 
 if __name__ == "__main__":
-    agent = MeleeAI(action_frequence=None, window_size=60, frame_delay=15, include_opp_input=False, multiAgent=False, weights='./weights/no_own_input_reminder.pth')
+    agent = MeleeAI(action_frequence=None, window_size=60, frame_delay=15, include_opp_input=False, multiAgent=False, weights='./weights/no_own_input_verbose_reminder.pth')
     agent.start()
