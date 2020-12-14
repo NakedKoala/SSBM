@@ -133,7 +133,7 @@ def train_eval_common_compute(model, batch, held_input_loss_factor, include_held
                 (choices == forced_action), dim=1
             )
             if not include_held_input_acc:
-                category_match *= held_input.reshape(-1).logical_not()
+                category_match *= held_input.to(choices.device).reshape(-1).logical_not()
             c_match = category_match.sum().item()
 
             # was the model's choices correct logically?
