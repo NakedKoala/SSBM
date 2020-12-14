@@ -26,5 +26,5 @@ if __name__ == "__main__":
     weights = './weights/no_own_input_verbose_reminder.pth'
     model.load_state_dict(torch.load(weights, map_location=lambda storage, loc: storage))
 
-    agent = MeleeAI(action_frequence=None, window_size=60, frame_delay=15, include_opp_input=False, multiAgent=False, model=model, iso_path=None)
+    agent = MeleeAI(action_frequence=None, window_size=60, frame_delay=15, include_opp_input=False, multiAgent=False, model=model, iso_path=None, behavior=0)
     agent.start()
