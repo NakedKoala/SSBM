@@ -37,7 +37,7 @@ class SSBM_LSTM_Prob(nn.Module):
                 self.lstm_out_size = hidden_size
             if latest_state_reminder:
                if verbose_reminder:
-                    self.action_head = ActionHead(self.lstm_out_size * self.num_directions + 44, **kwargs)
+                    self.action_head = ActionHead(self.lstm_out_size * self.num_directions + 37, **kwargs)
                else:
                     self.action_head = ActionHead(self.lstm_out_size * self.num_directions + 12, **kwargs)
             else:
@@ -86,7 +86,7 @@ class SSBM_LSTM_Prob(nn.Module):
 
             if latest_state_reminder:
                if verbose_reminder:
-                last_in_size += 44
+                last_in_size += 37
                else:
                 last_in_size += 12
 
