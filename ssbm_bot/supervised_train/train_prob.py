@@ -162,7 +162,7 @@ def train_eval_common_compute(model, batch, held_input_loss_factor, include_held
     loss = torch.zeros(1).to(device)
     for logits, target in zip(action_logits, all_targets):
         if logits.shape[1] == 32:
-            loss_unreduced = cross_entropy(logits, target.to(device), reduction='none', weight=weight_scale)
+            loss_unreduced = cross_entropy(logits, target.to(device), reduction='none', weight=weight_scale.cuda())
         else:
             loss_unreduced = cross_entropy(logits, target.to(device), reduction='none')
 
