@@ -103,7 +103,7 @@ def convert_idx_to_one_hot(indices_t):
     ), 1)
 
 
-def train_eval_common_compute(model, batch, held_input_loss_factor, include_held_input_acc, eval_behavior, compute_acc, device, tmp_lst):
+def train_eval_common_compute(model, batch, held_input_loss_factor, include_held_input_acc, eval_behavior, compute_acc, device, tmp_lst, weight_scale):
     if len(batch) == 4:
         features, cts_targets, button_targets, held_input = batch
         inputs = features.to(device)
@@ -161,8 +161,13 @@ def train_eval_common_compute(model, batch, held_input_loss_factor, include_held
 
     loss = torch.zeros(1).to(device)
     for logits, target in zip(action_logits, all_targets):
-        loss_unreduced = cross_entropy(logits, target.to(device), reduction='none')
+        if logits.shape[1] == 32:
+            loss_unreduced = cross_entropy(logits, target.to(device), reduction='none', weight=weight_scale)
+        else:
+            loss_unreduced = cross_entropy(logits, target.to(device), reduction='none')
+
         loss += (loss_unreduced * loss_factor_t).mean()
+        
 
     return loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger, c_match, c_held_ignored
 
@@ -170,7 +175,7 @@ _MOVING_AVG_FACTOR = 0.99
 def train_eval_common_loop(
     model, dataloader, held_input_loss_factor, eval_behavior, device, compute_acc=True,
     print_out_freq=None, optim=None, stats_tracker=None, short_circuit=None, include_held_input_acc=True,
-    tmp_lst=[]
+    tmp_lst=[], weight_scale=torch.ones(32)
 ):
     model.to(device)
     if optim:
@@ -212,13 +217,13 @@ def train_eval_common_loop(
         if optim:
             optim.zero_grad()
             loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger, c_match, c_held_ignored = \
-                train_eval_common_compute(model, batch, held_input_loss_factor, include_held_input_acc, eval_behavior, compute_acc, device, tmp_lst=tmp_lst)
+                train_eval_common_compute(model, batch, held_input_loss_factor, include_held_input_acc, eval_behavior, compute_acc, device, tmp_lst=tmp_lst, weight_scale=weight_scale)
             loss.backward()
             optim.step()
         else:
             with torch.no_grad():
                 loss, c_btn, c_coarse, c_fine, c_stick, c_cstick, c_trigger, c_match, c_held_ignored = \
-                    train_eval_common_compute(model, batch, held_input_loss_factor, include_held_input_acc, eval_behavior, compute_acc, device, tmp_lst=tmp_lst)
+                    train_eval_common_compute(model, batch, held_input_loss_factor, include_held_input_acc, eval_behavior, compute_acc, device, tmp_lst=tmp_lst, weight_scale=weight_scale)
                 
         total_loss = upd_moving_avg(total_loss, loss.item())
         num_ex = batch_size - c_held_ignored
@@ -260,9 +265,9 @@ def create_stats_tracker():
     stats_tracker['correct_match'] = []
     return stats_tracker
 
-def eval(model, val_dl, held_input_loss_factor, eval_behavior, device, stats_tracker=None, include_held_input_acc=True):
+def eval(model, val_dl, held_input_loss_factor, eval_behavior, device, stats_tracker=None, include_held_input_acc=True, weight_scale=torch.ones(32)):
     tmp_lst = []
-    train_eval_common_loop(model, val_dl, held_input_loss_factor, eval_behavior, device, stats_tracker=stats_tracker, include_held_input_acc=include_held_input_acc, tmp_lst=tmp_lst)
+    train_eval_common_loop(model, val_dl, held_input_loss_factor, eval_behavior, device, stats_tracker=stats_tracker, include_held_input_acc=include_held_input_acc, tmp_lst=tmp_lst, weight_scale=weight_scale)
     print(len(tmp_lst))
     counter = dict()
     for item in tmp_lst:
@@ -273,7 +278,7 @@ def eval(model, val_dl, held_input_loss_factor, eval_behavior, device, stats_tra
 
 def train(
     model, trn_dl, val_dl, epochs, held_input_loss_factor, eval_behavior, print_out_freq, compute_acc, device,
-    initial_lr=0.01, track_stats=True, short_circuit=None, lr_schedule=None, include_held_input_acc=True
+    initial_lr=0.01, track_stats=True, short_circuit=None, lr_schedule=None, include_held_input_acc=True, weight_scale=torch.ones(32)
 ):
     def def_lr_schedule(epoch):
         if epoch < 3:
@@ -302,7 +307,8 @@ def train(
         train_eval_common_loop(
             model, trn_dl, held_input_loss_factor, eval_behavior, device, optim=optim,
             print_out_freq=print_out_freq, compute_acc=compute_acc, stats_tracker=train_stats,
-            short_circuit=short_circuit, include_held_input_acc=include_held_input_acc
+            short_circuit=short_circuit, include_held_input_acc=include_held_input_acc,
+            weight_scale = weight_scale
         )
 
         print(f'***EVAL EPOCH {i}***', flush=True)
