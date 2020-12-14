@@ -36,31 +36,16 @@ class MeleeAI:
             self.index = frameIndex
 
 
-    def __init__(self, action_frequence, window_size, frame_delay, include_opp_input, multiAgent, weights):
+    def __init__(self, action_frequence, window_size, frame_delay, include_opp_input, multiAgent, model=None, iso_path=None):
         self.multiAgent = multiAgent
-        # self.model = SSBM_MVP(100, 50)
-        # self.model.load_state_dict(torch.load('./weights/mvp_fit5_EP7_VL0349.pth',  map_location=lambda storage, loc: storage))
 
         if not multiAgent: # this is only needed when running non-RL
-            out_hidden_sizes=[
-                [256, 128], # buttons
-                [512, 256, 128], # stick coarse - NOTE - actually has 129 outputs
-                [128, 128], # stick fine
-                [128, 128], # stick magn
-                [256, 128], # cstick coarse - NOTE - actually has 129 outputs
-                [16, 16], # cstick fine
-                [128, 128], # cstick magn
-                [256, 128], # trigger
-            ]
-            self.model = SSBM_LSTM_Prob(
-                action_embedding_dim = 100, hidden_size = 256,
-                num_layers = 1, bidirectional=False, dropout_p=0.2,
-                out_hidden_sizes=out_hidden_sizes, recent_actions=True,
-                attention=False, include_opp_input=include_opp_input, latest_state_reminder=False,
-            )
-            self.model.load_state_dict(torch.load(weights, map_location=lambda storage, loc: storage))
+            if model is None:
+                raise AttributeError(
+                    "model required to run MeleeAI for local play."
+                )
+            self.model = model
             self.model.eval()
-            # self.model.load_state_dict(torch.load('./weights/lstm_fd1_wz30_noshuffle_reminder.pth',  map_location=lambda storage, loc: storage))
 
         self.frame_delay = frame_delay
         self.window_size = window_size
@@ -102,7 +87,10 @@ class MeleeAI:
         if multiAgent:
             self.controller1 = melee.Controller(self.console, 1)
 
-        self.console.run(iso_path="/Users/cloudh/Desktop/SSBM/Super Smash Bros. Melee (USA) (v1.02).iso") #TODO: modularize? or set your )
+        if iso_path is None:
+            self.console.run()
+        else:
+            self.console.run(iso_path=iso_path)
 
         print("Connecting to console...")
         if not self.console.connect():
@@ -158,14 +146,15 @@ class MeleeAI:
                 model_input = (stale_states, action)
             else:
                 stale_frame = self.state_buffer.popleft()
-                model_input = self.frame_ctx.push_frame(frame, char_port=1, stage_id=stage_id, include_opp_input=False, last_action=self.last_model_output)
+                model_input = self.frame_ctx.push_frame(frame, char_port=1, stage_id=stage_id, include_opp_input=self.include_opp_input, last_action=self.last_model_output)
         else:
-            model_input, _ = self.frame_ctx.push_frame(frame, char_port=1, stage_id=stage_id, include_opp_input=False, last_action=None)
+            model_input, _ = self.frame_ctx.push_frame(frame, char_port=1, stage_id=stage_id, include_opp_input=self.include_opp_input, last_action=None)
 
 
         if self.action_frequence == None or self.frameCount % self.action_frequence == 0:
             # action_frequence == None -> we want action every frame
-            behavior = 0 if frame.index < 100 else 1
+            # behavior = 0 if frame.index < 100 else 1
+            behavior = 0
             _, choices, _ = self.model(model_input, behavior=behavior)
             self.last_model_output = choices[0]
             commands = convert_action_state_to_command(choices[0])
